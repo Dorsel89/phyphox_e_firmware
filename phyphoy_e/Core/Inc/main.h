@@ -34,15 +34,19 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "dac.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 extern uint16_t *myPointerToDMA;
 extern uint8_t *myPointerToConfigArray;
+extern uint8_t *p_dac_config;
+extern uint8_t *p_adc_config;
 extern volatile uint8_t transferring;
+extern dacx3202_t dacx3202;
 
+extern uint8_t adc_char_length;
 
 /* USER CODE END ET */
 
@@ -61,8 +65,16 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 extern void newConfigReceived();
+extern void dac_config_received();
+extern void adc_config_received();
 extern void setNewADC();
 extern void startADC();
+
+
+extern ADC_HandleTypeDef hadc1;
+extern DMA_HandleTypeDef hdma_adc1;
+extern COMP_HandleTypeDef hcomp1;
+
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
@@ -74,12 +86,14 @@ extern void startADC();
 #define SCL_GPIO_Port GPIOB
 #define switchRange_Pin GPIO_PIN_5
 #define switchRange_GPIO_Port GPIOB
-#define LED_G_Pin GPIO_PIN_14
-#define LED_G_GPIO_Port GPIOB
+#define LED_R_Pin GPIO_PIN_14
+#define LED_R_GPIO_Port GPIOB
 #define LED_B_Pin GPIO_PIN_15
 #define LED_B_GPIO_Port GPIOB
-#define LED_R_Pin GPIO_PIN_12
-#define LED_R_GPIO_Port GPIOB
+#define LED_G_Pin GPIO_PIN_12
+#define LED_G_GPIO_Port GPIOB
+#define CH1_Pin GPIO_PIN_5
+#define CH1_GPIO_Port GPIOC
 #define MUXA1_Pin GPIO_PIN_8
 #define MUXA1_GPIO_Port GPIOA
 #define MUXA0_Pin GPIO_PIN_9

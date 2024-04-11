@@ -37,6 +37,8 @@ typedef enum
   /* data */
   CUSTOM_STM_CHANNELONE,
   CUSTOM_STM_MYCHARNOTIFY,
+  CUSTOM_STM_DAC_CHAR,
+  CUSTOM_STM_ADC_CFG_CHAR,
 } Custom_STM_Char_Opcode_t;
 
 typedef enum
@@ -49,6 +51,12 @@ typedef enum
   /* myCharNotify */
   CUSTOM_STM_MYCHARNOTIFY_READ_EVT,
   CUSTOM_STM_MYCHARNOTIFY_WRITE_EVT,
+  /* dac_char */
+  CUSTOM_STM_DAC_CHAR_READ_EVT,
+  CUSTOM_STM_DAC_CHAR_WRITE_EVT,
+  /* adc_cfg_char */
+  CUSTOM_STM_ADC_CFG_CHAR_READ_EVT,
+  CUSTOM_STM_ADC_CFG_CHAR_WRITE_EVT,
 
   CUSTOM_STM_BOOT_REQUEST_EVT
 } Custom_STM_Opcode_evt_t;
@@ -74,6 +82,8 @@ typedef struct
 /* Exported constants --------------------------------------------------------*/
 extern uint8_t SizeChannelone;
 extern uint8_t SizeMycharnotify;
+extern uint8_t SizeDac_Char;
+extern uint8_t SizeAdc_Cfg_Char;
 
 /* USER CODE BEGIN EC */
 

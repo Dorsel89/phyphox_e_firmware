@@ -72,7 +72,7 @@
 /**
  * Define IO Authentication
  */
-#define CFG_BONDING_MODE                 (1)
+#define CFG_BONDING_MODE                 (0)
 #define CFG_FIXED_PIN                    (111111)
 #define CFG_USED_FIXED_PIN               (0)
 #define CFG_ENCRYPTION_KEY_SIZE_MAX      (16)
@@ -160,21 +160,6 @@
 
 /**< specific parameters */
 /*****************************************************/
-
-#define P2P_SERVER1    1    /*1 = Device is Peripherique*/
-#define P2P_SERVER2    0
-#define P2P_SERVER3    0
-#define P2P_SERVER4    0
-#define P2P_SERVER5    0
-#define P2P_SERVER6    0
-
-#define CFG_DEV_ID_P2P_SERVER1                  (0x83)
-#define CFG_DEV_ID_P2P_SERVER2                  (0x84)
-#define CFG_DEV_ID_P2P_SERVER3                  (0x87)
-#define CFG_DEV_ID_P2P_SERVER4                  (0x88)
-#define CFG_DEV_ID_P2P_SERVER5                  (0x89)
-#define CFG_DEV_ID_P2P_SERVER6                  (0x8A)
-#define CFG_DEV_ID_P2P_ROUTER                   (0x85)
 
 #define  RADIO_ACTIVITY_EVENT   1          /* 1 for OOB Demo */
 
@@ -662,6 +647,8 @@ typedef enum
 
 /* USER CODE BEGIN Defines */
 void myTask(void);
+void update_dac_settings(void);
+void update_adc_settings(void);
 void ble_updateChar(uint16_t* dma_adc);
 /* USER CODE END Defines */
 
@@ -686,6 +673,8 @@ typedef enum
   CFG_TASK_HCI_ASYNCH_EVT_ID,
   /* USER CODE BEGIN CFG_Task_Id_With_HCI_Cmd_t */
   CFG_TASK_MY_TASK,
+  CFG_TASK_UPDATE_DAC,
+  CFG_TASK_UPDATE_ADC,
   /* USER CODE END CFG_Task_Id_With_HCI_Cmd_t */
   CFG_LAST_TASK_ID_WITH_HCICMD,                                               /**< Shall be LAST in the list */
 } CFG_Task_Id_With_HCI_Cmd_t;

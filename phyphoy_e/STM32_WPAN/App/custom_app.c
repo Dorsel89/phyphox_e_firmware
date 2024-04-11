@@ -30,6 +30,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "shared.h"
+#include "dac.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -98,39 +99,96 @@ extern void newConfigReceived(){
 	}
 }
 
+extern void dac_config_received(){
+	UTIL_SEQ_SetTask(1 << CFG_TASK_UPDATE_DAC, CFG_SCH_PRIO_0);
+}
+extern void adc_config_received(){
+	UTIL_SEQ_SetTask(1 << CFG_TASK_UPDATE_ADC, CFG_SCH_PRIO_0);
+}
+void update_adc_settings(void){
+
+
+	uint8_t* adc_enable;
+	uint8_t* adc_mode;
+
+
+	//adc_char_length
+
+
+	if(p_adc_config != NULL && *p_adc_config == 1){
+
+		adc_enable = p_adc_config;
+		adc_mode = p_adc_config+1;
+
+		//if(adc_mode == 1){
+		if(1){
+			//live mode; channel 1;
+			hdma_adc1.Init.Mode = DMA_CIRCULAR;
+			HAL_ADC_Stop_DMA(&hadc1);
+			hadc1.Instance = ADC1;
+			hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV32;
+			hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+			hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+			hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+			hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+			hadc1.Init.LowPowerAutoWait = DISABLE;
+			hadc1.Init.ContinuousConvMode = ENABLE;
+			hadc1.Init.NbrOfConversion = 1;
+			hadc1.Init.DiscontinuousConvMode = DISABLE;
+			hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+			hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+			hadc1.Init.DMAContinuousRequests = ENABLE;
+			hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+			hadc1.Init.OversamplingMode = DISABLE;
+			if (HAL_ADC_Init(&hadc1) != HAL_OK)
+			{
+			Error_Handler();
+			}
+			ADC_ChannelConfTypeDef sConfig = {0};
+			sConfig.Channel = ADC_CHANNEL_14;
+			sConfig.Rank = ADC_REGULAR_RANK_1;
+			sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
+			sConfig.SingleDiff = ADC_SINGLE_ENDED;
+			sConfig.OffsetNumber = ADC_OFFSET_NONE;
+			sConfig.Offset = 0;
+			if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+			{
+			Error_Handler();
+			}
+		}
+		adc_char_length = 90;
+		startADC();
+	}
+
+}
+
+void update_dac_settings(void){
+
+	uint8_t* dac_enable;
+	uint8_t* dac_mode;
+	uint8_t* dac_value;
+	if(p_dac_config != NULL){
+		dac_enable = p_dac_config;
+		dac_mode = p_dac_config +1;
+		dac_value = p_dac_config +2;
+
+		if(*dac_enable == 1 && *dac_mode == 1){
+			float target[1];
+			memcpy(&target[0],dac_value,4);
+			float my_dac_val = (9.9-target[0])*2.9/(9.9-(-8.18));
+			dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, my_dac_val);
+		}
+	}
+}
 void myTask(void){
-	//UpdateCharData[0]+=1;
-	//memcpy(&UpdateCharData[0],adc_buffer_p,20);
+	HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
 	if(myPointerToDMA!=NULL){
 		//memcpy(&UpdateCharData[0],myPointerToDMA,20);
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA);
 	}else{
-		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)UpdateCharData);
+		//Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)UpdateCharData);
 	}
 	transferring = 0;
-	//HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
-
-	/*
-	UpdateCharData[0] ^= 0x1;
-	Custom_Datac_Update_Char();
-	Custom_Datac_Send_Notification();
-	 */
-
-	/*
-	if(!HAL_GPIO_ReadPin(button_GPIO_Port, button_Pin)){
-		HAL_GPIO_TogglePin(LED_W_GPIO_Port, LED_W_Pin);
-		UpdateCharData[0] ^= 0x1;
-		Custom_Mycharnotify_Update_Char();
-		Custom_Mycharnotify_Send_Notification();
-	}
-	*/
-
-	//memcpy(&UpdateCharData[0],dma_adc,20);
-	//Custom_STM_App_Update_Char(CUSTOM_STM_DATAC, (uint8_t *)UpdateCharData);
-
-	//UTIL_SEQ_SetTask(1 << CFG_TASK_MY_TASK, CFG_SCH_PRIO_0);
-
-
 }
 /* USER CODE END PFP */
 
@@ -183,6 +241,30 @@ void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotificatio
     		HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
 
       /* USER CODE END CUSTOM_STM_MYCHARNOTIFY_WRITE_EVT */
+      break;
+
+    case CUSTOM_STM_DAC_CHAR_READ_EVT:
+      /* USER CODE BEGIN CUSTOM_STM_DAC_CHAR_READ_EVT */
+
+      /* USER CODE END CUSTOM_STM_DAC_CHAR_READ_EVT */
+      break;
+
+    case CUSTOM_STM_DAC_CHAR_WRITE_EVT:
+      /* USER CODE BEGIN CUSTOM_STM_DAC_CHAR_WRITE_EVT */
+
+      /* USER CODE END CUSTOM_STM_DAC_CHAR_WRITE_EVT */
+      break;
+
+    case CUSTOM_STM_ADC_CFG_CHAR_READ_EVT:
+      /* USER CODE BEGIN CUSTOM_STM_ADC_CFG_CHAR_READ_EVT */
+
+      /* USER CODE END CUSTOM_STM_ADC_CFG_CHAR_READ_EVT */
+      break;
+
+    case CUSTOM_STM_ADC_CFG_CHAR_WRITE_EVT:
+      /* USER CODE BEGIN CUSTOM_STM_ADC_CFG_CHAR_WRITE_EVT */
+
+      /* USER CODE END CUSTOM_STM_ADC_CFG_CHAR_WRITE_EVT */
       break;
 
     default:

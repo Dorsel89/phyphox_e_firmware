@@ -122,6 +122,7 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
     PC2     ------> ADC1_IN3
     PC1     ------> ADC1_IN2
     PC0     ------> ADC1_IN1
+    PC5     ------> ADC1_IN14
     PA7     ------> ADC1_IN12
     PA6     ------> ADC1_IN11
     PA5     ------> ADC1_IN10
@@ -131,7 +132,7 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_1|GPIO_PIN_0;
+    GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_1|GPIO_PIN_0|CH1_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
@@ -145,7 +146,7 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
     hdma_adc1.Init.MemInc = DMA_MINC_ENABLE;
     hdma_adc1.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
     hdma_adc1.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
-    hdma_adc1.Init.Mode = DMA_NORMAL;
+    hdma_adc1.Init.Mode = DMA_CIRCULAR;
     hdma_adc1.Init.Priority = DMA_PRIORITY_LOW;
     if (HAL_DMA_Init(&hdma_adc1) != HAL_OK)
     {
@@ -182,13 +183,14 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* hadc)
     PC2     ------> ADC1_IN3
     PC1     ------> ADC1_IN2
     PC0     ------> ADC1_IN1
+    PC5     ------> ADC1_IN14
     PA7     ------> ADC1_IN12
     PA6     ------> ADC1_IN11
     PA5     ------> ADC1_IN10
     */
     HAL_GPIO_DeInit(GPIOA, GPIO_PIN_2|GPIO_PIN_7|GPIO_PIN_6|GPIO_PIN_5);
 
-    HAL_GPIO_DeInit(GPIOC, GPIO_PIN_2|GPIO_PIN_1|GPIO_PIN_0);
+    HAL_GPIO_DeInit(GPIOC, GPIO_PIN_2|GPIO_PIN_1|GPIO_PIN_0|CH1_Pin);
 
     /* ADC1 DMA DeInit */
     HAL_DMA_DeInit(hadc->DMA_Handle);
@@ -215,20 +217,20 @@ void HAL_COMP_MspInit(COMP_HandleTypeDef* hcomp)
   /* USER CODE END COMP1_MspInit 0 */
 
     __HAL_RCC_GPIOA_CLK_ENABLE();
-    __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
     /**COMP1 GPIO Configuration
     PA0     ------> COMP1_INM
-    PC5     ------> COMP1_INP
+    PB2     ------> COMP1_INP
     */
     GPIO_InitStruct.Pin = GPIO_PIN_0;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    GPIO_InitStruct.Pin = GPIO_PIN_5;
+    GPIO_InitStruct.Pin = GPIO_PIN_2;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
     /* COMP1 interrupt Init */
     HAL_NVIC_SetPriority(COMP_IRQn, 0, 0);
@@ -256,11 +258,11 @@ void HAL_COMP_MspDeInit(COMP_HandleTypeDef* hcomp)
 
     /**COMP1 GPIO Configuration
     PA0     ------> COMP1_INM
-    PC5     ------> COMP1_INP
+    PB2     ------> COMP1_INP
     */
     HAL_GPIO_DeInit(GPIOA, GPIO_PIN_0);
 
-    HAL_GPIO_DeInit(GPIOC, GPIO_PIN_5);
+    HAL_GPIO_DeInit(GPIOB, GPIO_PIN_2);
 
     /* COMP1 interrupt DeInit */
     HAL_NVIC_DisableIRQ(COMP_IRQn);

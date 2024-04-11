@@ -24,6 +24,7 @@
 #include <stdbool.h>
 #include "dac.h"
 #include "shared.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -56,16 +57,15 @@ RTC_HandleTypeDef hrtc;
 /* USER CODE BEGIN PV */
 uint32_t adc_buf[ADC_BUFFER_LEN];
 bool fillingFirstHalf;
-uint8_t testInt;
+
 
 bool filled = false;
-
-
 
 
 extern uint8_t ble_flag;
 extern uint8_t ble_buffer[1];
 extern volatile uint8_t transferring = 0;
+extern uint8_t adc_char_length = 180;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -92,6 +92,10 @@ static float threshold(float target);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+extern dacx3202_t dacx3202 = {.addr = DACX3202_7B_ADDR(0x00),
+							.i2c_read = read_i2c,
+							.i2c_write = write_i2c,
+							.vref = 3.0};
 
 /* USER CODE END 0 */
 
@@ -102,10 +106,7 @@ static float threshold(float target);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	static dacx3202_t dacx3202 = {.addr = DACX3202_7B_ADDR(0x00),
-							.i2c_read = read_i2c,
-							.i2c_write = write_i2c,
-							.vref = 2.968};
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -144,14 +145,14 @@ int main(void)
   /* USER CODE BEGIN 2 */
   adc_buffer_p = &adc_buf[0];
   fillingFirstHalf = true;
-  testInt = 0;
+
   HAL_COMP_Start(&hcomp1);
 
   //HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
 
   dacx3202_init(&dacx3202);
   dacx3202_power_up(&dacx3202, DACX3202_DAC_0);
-  dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, 0);
+  dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, 1.59);
   //dacx3202_set_voltage(&dacx3202, DACX3202_DAC_1, threshold(2.0));
   myPointerToDMA = &adc_buf[0];
   if(HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED)== HAL_OK){
@@ -308,7 +309,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_2;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
@@ -339,7 +340,7 @@ static void MX_COMP1_Init(void)
   /* USER CODE END COMP1_Init 1 */
   hcomp1.Instance = COMP1;
   hcomp1.Init.InputMinus = COMP_INPUT_MINUS_IO3;
-  hcomp1.Init.InputPlus = COMP_INPUT_PLUS_IO1;
+  hcomp1.Init.InputPlus = COMP_INPUT_PLUS_IO2;
   hcomp1.Init.OutputPol = COMP_OUTPUTPOL_NONINVERTED;
   hcomp1.Init.Hysteresis = COMP_HYSTERESIS_HIGH;
   hcomp1.Init.BlankingSrce = COMP_BLANKINGSRC_NONE;
@@ -550,10 +551,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(switchRange_GPIO_Port, switchRange_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, switchRange_Pin|LED_R_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, LED_G_Pin|LED_B_Pin|LED_R_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOB, LED_B_Pin|LED_G_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(MUXA1_GPIO_Port, MUXA1_Pin, GPIO_PIN_SET);
@@ -573,8 +574,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : switchRange_Pin LED_G_Pin LED_B_Pin LED_R_Pin */
-  GPIO_InitStruct.Pin = switchRange_Pin|LED_G_Pin|LED_B_Pin|LED_R_Pin;
+  /*Configure GPIO pins : switchRange_Pin LED_R_Pin LED_B_Pin LED_G_Pin */
+  GPIO_InitStruct.Pin = switchRange_Pin|LED_R_Pin|LED_B_Pin|LED_G_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -714,9 +715,9 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc1){
 
 	//fillingFirstHalf=true;
 	UTIL_SEQ_SetTask(1 << CFG_TASK_MY_TASK, CFG_SCH_PRIO_0);
-	//HAL_ADC_Stop_DMA(&hadc1);
-	HAL_ADC_Stop_DMA(hadc1);
-	HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
+
+	//HAL_ADC_Stop_DMA(hadc1);
+	//HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
 
 }
 
