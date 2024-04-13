@@ -34,7 +34,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define ADC_BUFFER_LEN 900
+#define ADC_BUFFER_LEN 180
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -299,7 +299,11 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
-  hadc1.Init.OversamplingMode = DISABLE;
+  hadc1.Init.OversamplingMode = ENABLE;
+  hadc1.Init.Oversampling.Ratio = ADC_OVERSAMPLING_RATIO_2;
+  hadc1.Init.Oversampling.RightBitShift = ADC_RIGHTBITSHIFT_1;
+  hadc1.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
+  hadc1.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
@@ -704,21 +708,17 @@ void HAL_COMP_TriggerCallback(COMP_HandleTypeDef *hcomp){
 
 
 //Callback when half filled
-/*
+
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc){
-	fillingFirstHalf=false;
+	UTIL_SEQ_SetTask(1 << CFG_TASK_HALF_FILLED, CFG_SCH_PRIO_0);
 }
-*/
+
 //Callback when buffer filled
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc1){
 
 	//fillingFirstHalf=true;
 	UTIL_SEQ_SetTask(1 << CFG_TASK_MY_TASK, CFG_SCH_PRIO_0);
-
-	//HAL_ADC_Stop_DMA(hadc1);
-	//HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
-
 }
 
 

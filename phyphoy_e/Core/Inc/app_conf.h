@@ -647,6 +647,7 @@ typedef enum
 
 /* USER CODE BEGIN Defines */
 void myTask(void);
+void callback_half_filled(void);
 void update_dac_settings(void);
 void update_adc_settings(void);
 void ble_updateChar(uint16_t* dma_adc);
@@ -673,6 +674,7 @@ typedef enum
   CFG_TASK_HCI_ASYNCH_EVT_ID,
   /* USER CODE BEGIN CFG_Task_Id_With_HCI_Cmd_t */
   CFG_TASK_MY_TASK,
+  CFG_TASK_HALF_FILLED,
   CFG_TASK_UPDATE_DAC,
   CFG_TASK_UPDATE_ADC,
   /* USER CODE END CFG_Task_Id_With_HCI_Cmd_t */

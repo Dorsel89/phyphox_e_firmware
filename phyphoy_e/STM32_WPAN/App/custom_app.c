@@ -46,7 +46,14 @@ typedef struct
 } Custom_App_Context_t;
 
 /* USER CODE BEGIN PTD */
-
+uint8_t SAMPLETIME[8]={ADC_SAMPLETIME_2CYCLES_5,
+		  ADC_SAMPLETIME_6CYCLES_5,
+		  ADC_SAMPLETIME_12CYCLES_5,
+		  ADC_SAMPLETIME_24CYCLES_5,
+		  ADC_SAMPLETIME_47CYCLES_5,
+		  ADC_SAMPLETIME_92CYCLES_5,
+		  ADC_SAMPLETIME_247CYCLES_5,
+		  ADC_SAMPLETIME_640CYCLES_5};
 /* USER CODE END PTD */
 
 /* Private defines ------------------------------------------------------------*/
@@ -108,25 +115,29 @@ extern void adc_config_received(){
 void update_adc_settings(void){
 
 
-	uint8_t* adc_enable;
-	uint8_t* adc_mode;
-
+	uint8_t adc_enable;
+	uint8_t adc_mode;
+	uint8_t adc_sampletime;
+	uint8_t adc_clock_prescaler;
+	uint8_t adc_oversampling;
 
 	//adc_char_length
 
 
 	if(p_adc_config != NULL && *p_adc_config == 1){
 
-		adc_enable = p_adc_config;
-		adc_mode = p_adc_config+1;
-
+		adc_enable = 1;//p_adc_config;
+		adc_mode = 1;//p_adc_config+1;
+		adc_sampletime = 7;//p_adc_config+2;
+		adc_clock_prescaler = ADC_CLOCK_ASYNC_DIV32;//p_adc_config+4;
+		adc_oversampling = 1;//p_adc_config+5;
 		//if(adc_mode == 1){
 		if(1){
 			//live mode; channel 1;
-			hdma_adc1.Init.Mode = DMA_CIRCULAR;
+
 			HAL_ADC_Stop_DMA(&hadc1);
 			hadc1.Instance = ADC1;
-			hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV32;
+			hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
 			hadc1.Init.Resolution = ADC_RESOLUTION_12B;
 			hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
 			hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
@@ -139,7 +150,13 @@ void update_adc_settings(void){
 			hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
 			hadc1.Init.DMAContinuousRequests = ENABLE;
 			hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
-			hadc1.Init.OversamplingMode = DISABLE;
+			hadc1.Init.OversamplingMode = ENABLE;
+			hadc1.Init.Oversampling.Ratio = ADC_OVERSAMPLING_RATIO_64;
+			hadc1.Init.Oversampling.RightBitShift = ADC_RIGHTBITSHIFT_6;
+			hadc1.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
+			hadc1.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
+
+
 			if (HAL_ADC_Init(&hadc1) != HAL_OK)
 			{
 			Error_Handler();
@@ -147,7 +164,7 @@ void update_adc_settings(void){
 			ADC_ChannelConfTypeDef sConfig = {0};
 			sConfig.Channel = ADC_CHANNEL_14;
 			sConfig.Rank = ADC_REGULAR_RANK_1;
-			sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
+			sConfig.SamplingTime = ADC_SAMPLETIME_92CYCLES_5;//SAMPLETIME[adc_sampletime];
 			sConfig.SingleDiff = ADC_SINGLE_ENDED;
 			sConfig.OffsetNumber = ADC_OFFSET_NONE;
 			sConfig.Offset = 0;
@@ -155,8 +172,10 @@ void update_adc_settings(void){
 			{
 			Error_Handler();
 			}
+			startADC();
+			//HAL_GetTick();
 		}
-		adc_char_length = 90;
+		adc_char_length = 180;
 		startADC();
 	}
 
@@ -184,11 +203,18 @@ void myTask(void){
 	HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
 	if(myPointerToDMA!=NULL){
 		//memcpy(&UpdateCharData[0],myPointerToDMA,20);
-		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+adc_char_length/2);
 	}else{
 		//Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)UpdateCharData);
 	}
 	transferring = 0;
+}
+void callback_half_filled(void){
+	//HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
+	if(myPointerToDMA!=NULL){
+		//memcpy(&UpdateCharData[0],myPointerToDMA,20);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA);
+	}
 }
 /* USER CODE END PFP */
 
