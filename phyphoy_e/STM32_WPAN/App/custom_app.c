@@ -151,8 +151,8 @@ void update_adc_settings(void){
 			hadc1.Init.DMAContinuousRequests = ENABLE;
 			hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
 			hadc1.Init.OversamplingMode = ENABLE;
-			hadc1.Init.Oversampling.Ratio = ADC_OVERSAMPLING_RATIO_64;
-			hadc1.Init.Oversampling.RightBitShift = ADC_RIGHTBITSHIFT_6;
+			hadc1.Init.Oversampling.Ratio = ADC_OVERSAMPLING_RATIO_4;//ADC_OVERSAMPLING_RATIO_64;
+			hadc1.Init.Oversampling.RightBitShift = ADC_RIGHTBITSHIFT_2;
 			hadc1.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
 			hadc1.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
 
@@ -162,9 +162,9 @@ void update_adc_settings(void){
 			Error_Handler();
 			}
 			ADC_ChannelConfTypeDef sConfig = {0};
-			sConfig.Channel = ADC_CHANNEL_14;
+			sConfig.Channel = ADC_CHANNEL_14;//ADC_CHANNEL_14; oder_2
 			sConfig.Rank = ADC_REGULAR_RANK_1;
-			sConfig.SamplingTime = ADC_SAMPLETIME_92CYCLES_5;//SAMPLETIME[adc_sampletime];
+			sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;//SAMPLETIME[adc_sampletime];
 			sConfig.SingleDiff = ADC_SINGLE_ENDED;
 			sConfig.OffsetNumber = ADC_OFFSET_NONE;
 			sConfig.Offset = 0;
@@ -291,6 +291,12 @@ void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotificatio
       /* USER CODE BEGIN CUSTOM_STM_ADC_CFG_CHAR_WRITE_EVT */
 
       /* USER CODE END CUSTOM_STM_ADC_CFG_CHAR_WRITE_EVT */
+      break;
+
+    case CUSTOM_STM_NOTIFICATION_COMPLETE_EVT:
+      /* USER CODE BEGIN CUSTOM_STM_NOTIFICATION_COMPLETE_EVT */
+
+      /* USER CODE END CUSTOM_STM_NOTIFICATION_COMPLETE_EVT */
       break;
 
     default:

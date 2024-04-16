@@ -78,6 +78,8 @@ extern COMP_HandleTypeDef hcomp1;
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define in_dac_trigger_Pin GPIO_PIN_2
+#define in_dac_trigger_GPIO_Port GPIOA
 #define button_Pin GPIO_PIN_1
 #define button_GPIO_Port GPIOA
 #define SDA_Pin GPIO_PIN_9

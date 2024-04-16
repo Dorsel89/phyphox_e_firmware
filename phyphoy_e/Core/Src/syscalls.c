@@ -29,6 +29,13 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/times.h>
+/*
+#define ITM_TRACE_EN          *((volatile uint32_t*) 0xE00000E00)
+#define DEMCR                 *((volatile uint32_t*) 0xE000EDFCU)
+#define ITM_STIMULUS_PORT0    *((volatile uint32_t*) 0xE00000000)
+
+
+*/
 
 
 /* Variables */

@@ -24,7 +24,8 @@
 #include <stdbool.h>
 #include "dac.h"
 #include "shared.h"
-
+#include <stdlib.h>
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -66,6 +67,8 @@ extern uint8_t ble_flag;
 extern uint8_t ble_buffer[1];
 extern volatile uint8_t transferring = 0;
 extern uint8_t adc_char_length = 180;
+
+uint8_t count;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -73,7 +76,6 @@ void SystemClock_Config(void);
 void PeriphCommonClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
-static void MX_MEMORYMAP_Init(void);
 static void MX_RTC_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_COMP1_Init(void);
@@ -92,6 +94,31 @@ static float threshold(float target);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+/*
+ *
+ void ITM_SendChar(uint8_t ch)
+
+{
+	// Enable TRCENA
+	DEMCR |= (1<<24);
+	// Enable Stimulus Port0
+	ITM_TRACE_EN |= (1<<0);
+	// Read FIFO status in bit[0]:
+	while(!(ITM_STIMULUS_PORT0 & 1));
+	// Write to ITM Stimulus Port0
+	ITM_STIMULUS_PORT0 = ch;
+}
+ */
+
+int _write(int file, char *ptr, int len){
+	int i=0;
+	for(i=0; i<len; i++){
+		ITM_SendChar((*ptr++));
+	}
+	return len;
+}
+uint8_t count =0;
+
 extern dacx3202_t dacx3202 = {.addr = DACX3202_7B_ADDR(0x00),
 							.i2c_read = read_i2c,
 							.i2c_write = write_i2c,
@@ -105,6 +132,7 @@ extern dacx3202_t dacx3202 = {.addr = DACX3202_7B_ADDR(0x00),
   */
 int main(void)
 {
+
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -136,7 +164,6 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
-  MX_MEMORYMAP_Init();
   MX_RTC_Init();
   MX_I2C1_Init();
   MX_COMP1_Init();
@@ -161,6 +188,9 @@ int main(void)
   HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_SET);
   //HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUFFER_LEN);
 
+  //printf("The counter value is: %d\r\n",count);
+  //count++;
+  //fflush(stdout);
 
   /* USER CODE END 2 */
 
@@ -174,7 +204,11 @@ int main(void)
     /* USER CODE END WHILE */
     MX_APPE_Process();
 
+    printf("The counter value is: %d\r\n",count);
+
     /* USER CODE BEGIN 3 */
+
+    //HAL_Delay(1000);
   }
   /* USER CODE END 3 */
 }
@@ -295,8 +329,8 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.NbrOfConversion = 1;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_EXT_IT11;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
   hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
   hadc1.Init.OversamplingMode = ENABLE;
@@ -436,27 +470,6 @@ static void MX_IPCC_Init(void)
 }
 
 /**
-  * @brief MEMORYMAP Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_MEMORYMAP_Init(void)
-{
-
-  /* USER CODE BEGIN MEMORYMAP_Init 0 */
-
-  /* USER CODE END MEMORYMAP_Init 0 */
-
-  /* USER CODE BEGIN MEMORYMAP_Init 1 */
-
-  /* USER CODE END MEMORYMAP_Init 1 */
-  /* USER CODE BEGIN MEMORYMAP_Init 2 */
-
-  /* USER CODE END MEMORYMAP_Init 2 */
-
-}
-
-/**
   * @brief RF Initialization Function
   * @param None
   * @retval None
@@ -566,6 +579,12 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(MUXA0_GPIO_Port, MUXA0_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin : in_dac_trigger_Pin */
+  GPIO_InitStruct.Pin = in_dac_trigger_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(in_dac_trigger_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pin : button_Pin */
   GPIO_InitStruct.Pin = button_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
@@ -584,6 +603,18 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PB4 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PC11 */
+  GPIO_InitStruct.Pin = GPIO_PIN_11;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : MUXA1_Pin MUXA0_Pin */
   GPIO_InitStruct.Pin = MUXA1_Pin|MUXA0_Pin;

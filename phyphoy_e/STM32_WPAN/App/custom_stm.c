@@ -89,7 +89,13 @@ static CustomContext_t CustomContext;
 static SVCCTL_EvtAckStatus_t Custom_STM_Event_Handler(void *pckt);
 
 /* USER CODE BEGIN PFP */
-
+#define COPY_UUID_128(uuid_struct, uuid_15, uuid_14, uuid_13, uuid_12, uuid_11, uuid_10, uuid_9, uuid_8, uuid_7, uuid_6, uuid_5, uuid_4, uuid_3, uuid_2, uuid_1, uuid_0) \
+do {\
+    uuid_struct[0] = uuid_0; uuid_struct[1] = uuid_1; uuid_struct[2] = uuid_2; uuid_struct[3] = uuid_3; \
+    uuid_struct[4] = uuid_4; uuid_struct[5] = uuid_5; uuid_struct[6] = uuid_6; uuid_struct[7] = uuid_7; \
+    uuid_struct[8] = uuid_8; uuid_struct[9] = uuid_9; uuid_struct[10] = uuid_10; uuid_struct[11] = uuid_11; \
+    uuid_struct[12] = uuid_12; uuid_struct[13] = uuid_13; uuid_struct[14] = uuid_14; uuid_struct[15] = uuid_15; \
+}while(0)
 /* USER CODE END PFP */
 
 /* Functions Definition ------------------------------------------------------*/
@@ -99,22 +105,6 @@ static SVCCTL_EvtAckStatus_t Custom_STM_Event_Handler(void *pckt);
 
 /* Private functions ----------------------------------------------------------*/
 
-#define COPY_UUID_128(uuid_struct, uuid_15, uuid_14, uuid_13, uuid_12, uuid_11, uuid_10, uuid_9, uuid_8, uuid_7, uuid_6, uuid_5, uuid_4, uuid_3, uuid_2, uuid_1, uuid_0) \
-do {\
-    uuid_struct[0] = uuid_0; uuid_struct[1] = uuid_1; uuid_struct[2] = uuid_2; uuid_struct[3] = uuid_3; \
-    uuid_struct[4] = uuid_4; uuid_struct[5] = uuid_5; uuid_struct[6] = uuid_6; uuid_struct[7] = uuid_7; \
-    uuid_struct[8] = uuid_8; uuid_struct[9] = uuid_9; uuid_struct[10] = uuid_10; uuid_struct[11] = uuid_11; \
-    uuid_struct[12] = uuid_12; uuid_struct[13] = uuid_13; uuid_struct[14] = uuid_14; uuid_struct[15] = uuid_15; \
-}while(0)
-
-/* Hardware Characteristics Service */
-/*
- The following 128bits UUIDs have been generated from the random UUID
- generator:
- D973F2E0-B19E-11E2-9E96-0800200C9A66: Service 128bits UUID
- D973F2E1-B19E-11E2-9E96-0800200C9A66: Characteristic_1 128bits UUID
- D973F2E2-B19E-11E2-9E96-0800200C9A66: Characteristic_2 128bits UUID
- */
 #define COPY_DATA_UUID(uuid_struct)          COPY_UUID_128(uuid_struct,0xcd,0xdf,0x10,0x01,0x30,0xf7,0x46,0x71,0x8b,0x43,0x5e,0x40,0xba,0x53,0x51,0x4a)
 #define COPY_CHANNELONE_UUID(uuid_struct)    COPY_UUID_128(uuid_struct,0xcd,0xdf,0x10,0x02,0x30,0xf7,0x46,0x71,0x8b,0x43,0x5e,0x40,0xba,0x53,0x51,0x4a)
 #define COPY_MYCHARNOTIFY_UUID(uuid_struct)    COPY_UUID_128(uuid_struct,0xcd,0xdf,0x10,0x03,0x30,0xf7,0x46,0x71,0x8b,0x43,0x5e,0x40,0xba,0x53,0x51,0x4a)
@@ -136,6 +126,7 @@ static SVCCTL_EvtAckStatus_t Custom_STM_Event_Handler(void *Event)
   hci_event_pckt *event_pckt;
   evt_blecore_aci *blecore_evt;
   aci_gatt_attribute_modified_event_rp0 *attribute_modified;
+  aci_gatt_notification_complete_event_rp0    *notification_complete;
   Custom_STM_App_Notification_evt_t     Notification;
   /* USER CODE BEGIN Custom_STM_Event_Handler_1 */
 
@@ -256,6 +247,22 @@ static SVCCTL_EvtAckStatus_t Custom_STM_Event_Handler(void *Event)
 
           /* USER CODE END EVT_BLUE_GATT_WRITE_PERMIT_REQ_END */
           break;
+
+		case ACI_GATT_NOTIFICATION_COMPLETE_VSEVT_CODE:
+        {
+          /* USER CODE BEGIN EVT_BLUE_GATT_NOTIFICATION_COMPLETE_BEGIN */
+
+          /* USER CODE END EVT_BLUE_GATT_NOTIFICATION_COMPLETE_BEGIN */
+          notification_complete = (aci_gatt_notification_complete_event_rp0*)blecore_evt->data;
+          Notification.Custom_Evt_Opcode = CUSTOM_STM_NOTIFICATION_COMPLETE_EVT;
+          Notification.AttrHandle = notification_complete->Attr_Handle;
+          Custom_STM_App_Notification(&Notification);
+          /* USER CODE BEGIN EVT_BLUE_GATT_NOTIFICATION_COMPLETE_END */
+
+          /* USER CODE END EVT_BLUE_GATT_NOTIFICATION_COMPLETE_END */
+          break;
+        }
+
         /* USER CODE BEGIN BLECORE_EVT */
 
         /* USER CODE END BLECORE_EVT */
@@ -325,7 +332,7 @@ void SVCCTL_InitCustomSvc(void)
    *                              = 11
    *
    * This value doesn't take into account number of descriptors manually added
-   * In case of descriptors addded, please update the max_attr_record value accordingly in the next SVCCTL_InitService User Section
+   * In case of descriptors added, please update the max_attr_record value accordingly in the next SVCCTL_InitService User Section
    */
   max_attr_record = 11;
 
