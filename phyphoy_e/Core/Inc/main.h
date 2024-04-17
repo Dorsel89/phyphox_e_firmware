@@ -43,7 +43,10 @@ extern uint16_t *myPointerToDMA;
 extern uint8_t *myPointerToConfigArray;
 extern uint8_t *p_dac_config;
 extern uint8_t *p_adc_config;
-extern volatile uint8_t transferring;
+extern uint8_t adc_config[20];
+extern volatile uint8_t trasferring;
+extern volatile uint8_t activate_trigger;
+
 extern dacx3202_t dacx3202;
 
 extern uint8_t adc_char_length;
@@ -69,6 +72,9 @@ extern void dac_config_received();
 extern void adc_config_received();
 extern void setNewADC();
 extern void startADC();
+extern void set_dma_circular(uint8_t b);
+
+extern void change_edge(uint8_t e);
 
 
 extern ADC_HandleTypeDef hadc1;
@@ -80,8 +86,10 @@ extern COMP_HandleTypeDef hcomp1;
 /* Private defines -----------------------------------------------------------*/
 #define in_dac_trigger_Pin GPIO_PIN_2
 #define in_dac_trigger_GPIO_Port GPIOA
-#define button_Pin GPIO_PIN_1
-#define button_GPIO_Port GPIOA
+#define ADC_MUX_divided_Pin GPIO_PIN_1
+#define ADC_MUX_divided_GPIO_Port GPIOA
+#define DAC_Trigger_COMP1_Pin GPIO_PIN_0
+#define DAC_Trigger_COMP1_GPIO_Port GPIOA
 #define SDA_Pin GPIO_PIN_9
 #define SDA_GPIO_Port GPIOB
 #define SCL_Pin GPIO_PIN_8
@@ -94,8 +102,8 @@ extern COMP_HandleTypeDef hcomp1;
 #define LED_B_GPIO_Port GPIOB
 #define LED_G_Pin GPIO_PIN_12
 #define LED_G_GPIO_Port GPIOB
-#define CH1_Pin GPIO_PIN_5
-#define CH1_GPIO_Port GPIOC
+#define ADC_CH1_COMP_P_Pin GPIO_PIN_5
+#define ADC_CH1_COMP_P_GPIO_Port GPIOC
 #define MUXA1_Pin GPIO_PIN_8
 #define MUXA1_GPIO_Port GPIOA
 #define MUXA0_Pin GPIO_PIN_9

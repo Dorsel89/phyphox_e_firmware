@@ -57,6 +57,7 @@ typedef struct{
 extern uint8_t *myPointerToConfigArray = NULL;
 extern uint8_t *p_dac_config = NULL;
 extern uint8_t *p_adc_config = NULL;
+extern uint8_t adc_config[20]={0};
 /* USER CODE END PD */
 
 /* Private macros ------------------------------------------------------------*/
@@ -222,6 +223,7 @@ static SVCCTL_EvtAckStatus_t Custom_STM_Event_Handler(void *Event)
             return_value = SVCCTL_EvtAckFlowEnable;
             /* USER CODE BEGIN CUSTOM_STM_Service_1_Char_4_ACI_GATT_ATTRIBUTE_MODIFIED_VSEVT_CODE */
             p_adc_config = &attribute_modified->Attr_Data[0];
+            memcpy(&adc_config[0],&attribute_modified->Attr_Data[0],20);
             adc_config_received();
             /* USER CODE END CUSTOM_STM_Service_1_Char_4_ACI_GATT_ATTRIBUTE_MODIFIED_VSEVT_CODE */
           } /* if (attribute_modified->Attr_Handle == (CustomContext.CustomAdc_Cfg_CharHdle + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))*/

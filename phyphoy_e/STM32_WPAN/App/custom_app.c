@@ -46,14 +46,43 @@ typedef struct
 } Custom_App_Context_t;
 
 /* USER CODE BEGIN PTD */
-uint8_t SAMPLETIME[8]={ADC_SAMPLETIME_2CYCLES_5,
-		  ADC_SAMPLETIME_6CYCLES_5,
-		  ADC_SAMPLETIME_12CYCLES_5,
-		  ADC_SAMPLETIME_24CYCLES_5,
-		  ADC_SAMPLETIME_47CYCLES_5,
-		  ADC_SAMPLETIME_92CYCLES_5,
-		  ADC_SAMPLETIME_247CYCLES_5,
+uint8_t SAMPLETIME[8]={ADC_SAMPLETIME_2CYCLES_5,	// 0
+		  ADC_SAMPLETIME_6CYCLES_5,					// 1
+		  ADC_SAMPLETIME_12CYCLES_5,				// 2
+		  ADC_SAMPLETIME_24CYCLES_5,				// 3
+		  ADC_SAMPLETIME_47CYCLES_5,				// 4
+		  ADC_SAMPLETIME_92CYCLES_5,				// 5
+		  ADC_SAMPLETIME_247CYCLES_5,				// 6
 		  ADC_SAMPLETIME_640CYCLES_5};
+
+uint8_t PRESCALER[]={ADC_CLOCK_ASYNC_DIV1,
+					ADC_CLOCK_ASYNC_DIV2,
+					ADC_CLOCK_ASYNC_DIV4,
+					ADC_CLOCK_ASYNC_DIV8,
+					ADC_CLOCK_ASYNC_DIV16,
+					ADC_CLOCK_ASYNC_DIV32
+};
+uint8_t OVERSAMPLING[]={ADC_OVERSAMPLING_RATIO_2,
+						ADC_OVERSAMPLING_RATIO_2,
+						ADC_OVERSAMPLING_RATIO_4,
+						ADC_OVERSAMPLING_RATIO_8,
+						ADC_OVERSAMPLING_RATIO_16,
+						ADC_OVERSAMPLING_RATIO_32,
+						ADC_OVERSAMPLING_RATIO_64,
+						ADC_OVERSAMPLING_RATIO_128,
+						ADC_OVERSAMPLING_RATIO_256
+};
+uint8_t BITSHIFT[]={ADC_RIGHTBITSHIFT_NONE,
+						ADC_RIGHTBITSHIFT_1,
+						ADC_RIGHTBITSHIFT_2,
+						ADC_RIGHTBITSHIFT_3,
+						ADC_RIGHTBITSHIFT_4,
+						ADC_RIGHTBITSHIFT_5,
+						ADC_RIGHTBITSHIFT_6,
+						ADC_RIGHTBITSHIFT_7,
+						ADC_RIGHTBITSHIFT_8
+};
+
 /* USER CODE END PTD */
 
 /* Private defines ------------------------------------------------------------*/
@@ -98,9 +127,13 @@ static void Custom_Channelone_Send_Notification(void);
 
 /* USER CODE BEGIN PFP */
 extern void newConfigReceived(){
-	HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+
+	//HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
 	if(*myPointerToConfigArray ==0x01){
-		startADC();
+		//startADC();
+		activate_trigger = 1;
+		HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
+		printf("activate trigger \r\n");
 	}else{
 		//TODO
 	}
@@ -112,59 +145,94 @@ extern void dac_config_received(){
 extern void adc_config_received(){
 	UTIL_SEQ_SetTask(1 << CFG_TASK_UPDATE_ADC, CFG_SCH_PRIO_0);
 }
+
 void update_adc_settings(void){
 
 
-	uint8_t adc_enable;
-	uint8_t adc_mode;
-	uint8_t adc_sampletime;
-	uint8_t adc_clock_prescaler;
-	uint8_t adc_oversampling;
+
+	uint8_t* adc_mode;
+	uint8_t* adc_sampletime;
+	uint8_t* adc_clock_prescaler;
+	uint8_t* adc_oversampling;
+	uint8_t* adc_routing;
+	uint8_t* threshold;
+	uint8_t* adc_edge;
+	float dac_voltage[2]={0};
 
 	//adc_char_length
 
 
-	if(p_adc_config != NULL && *p_adc_config == 1){
+	if(p_adc_config != NULL){
 
-		adc_enable = 1;//p_adc_config;
-		adc_mode = 1;//p_adc_config+1;
-		adc_sampletime = 7;//p_adc_config+2;
-		adc_clock_prescaler = ADC_CLOCK_ASYNC_DIV32;//p_adc_config+4;
-		adc_oversampling = 1;//p_adc_config+5;
+
+		adc_mode = &adc_config[0];
+		adc_routing = &adc_config[1];
+		adc_sampletime = &adc_config[2];
+		adc_clock_prescaler = &adc_config[3];
+		adc_oversampling = &adc_config[4];
+		adc_edge = &adc_config[5];
+		memcpy(&dac_voltage[1],&adc_config[6],4);
+		float my_dac_val = (9.9-dac_voltage[1])*2.9/(9.9-(-8.18));
+		dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, my_dac_val);
+
 		//if(adc_mode == 1){
-		if(1){
-			//live mode; channel 1;
+		printf("adc mode: %i\r\n",*adc_mode);
+		printf("routing: %i\r\n",*adc_routing);
+		printf("adc_sampletime: %i\r\n",*adc_sampletime);
+		printf("adc_clock_prescaler: %i\r\n",*adc_clock_prescaler);
+		printf("adc_oversampling: %i\r\n",*adc_oversampling);
+		printf("adc_edge: %i\r\n",*adc_edge);
 
-			HAL_ADC_Stop_DMA(&hadc1);
-			hadc1.Instance = ADC1;
-			hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
-			hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-			hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-			hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
-			hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-			hadc1.Init.LowPowerAutoWait = DISABLE;
-			hadc1.Init.ContinuousConvMode = ENABLE;
-			hadc1.Init.NbrOfConversion = 1;
-			hadc1.Init.DiscontinuousConvMode = DISABLE;
-			hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-			hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-			hadc1.Init.DMAContinuousRequests = ENABLE;
-			hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+		printf("0: %i ,1: %i ,2: %i ,3: %i, \r\n",adc_config[5],adc_config[6],adc_config[7],adc_config[8]);
+
+		if(dac_voltage[1]==4.0){
+			printf("thresholdvalue works: \r\n");
+		}
+
+		change_edge(*adc_edge);
+		HAL_ADC_Stop_DMA(&hadc1);
+		hadc1.Instance = ADC1;
+		hadc1.Init.ClockPrescaler = PRESCALER[*adc_clock_prescaler];
+		hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+		hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+		hadc1.Init.LowPowerAutoWait = DISABLE;
+		hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+		hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+		hadc1.Init.ContinuousConvMode = ENABLE;
+		hadc1.Init.NbrOfConversion = 1;
+		hadc1.Init.DiscontinuousConvMode = DISABLE;
+		hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+		hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+		hadc1.Init.DMAContinuousRequests = DISABLE;
+		hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+		if(*adc_oversampling==0){
+			hadc1.Init.OversamplingMode = DISABLE;
+			hadc1.Init.Oversampling.Ratio = OVERSAMPLING[*adc_oversampling];
+		}else{
 			hadc1.Init.OversamplingMode = ENABLE;
-			hadc1.Init.Oversampling.Ratio = ADC_OVERSAMPLING_RATIO_4;//ADC_OVERSAMPLING_RATIO_64;
-			hadc1.Init.Oversampling.RightBitShift = ADC_RIGHTBITSHIFT_2;
-			hadc1.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
-			hadc1.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
+			hadc1.Init.Oversampling.Ratio = OVERSAMPLING[*adc_oversampling];
+		}
+		hadc1.Init.Oversampling.RightBitShift = BITSHIFT[*adc_oversampling];
+		hadc1.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
+		hadc1.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
+		if (HAL_ADC_Init(&hadc1) != HAL_OK)
+		{
+		Error_Handler();
+		}
+		ADC_ChannelConfTypeDef sConfig = {0};
+		if(adc_routing == 1){
+			sConfig.Channel = ADC_CHANNEL_14;
+		}else if(adc_routing == 2){
+			sConfig.Channel = ADC_CHANNEL_2;
+		}
 
+		if(*adc_mode == 0){
+			//live mode;
+			set_dma_circular(1);
 
-			if (HAL_ADC_Init(&hadc1) != HAL_OK)
-			{
-			Error_Handler();
-			}
-			ADC_ChannelConfTypeDef sConfig = {0};
-			sConfig.Channel = ADC_CHANNEL_14;//ADC_CHANNEL_14; oder_2
+			//sConfig.Channel = ADC_CHANNEL_14;//ADC_CHANNEL_14; oder_2
 			sConfig.Rank = ADC_REGULAR_RANK_1;
-			sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;//SAMPLETIME[adc_sampletime];
+			sConfig.SamplingTime = SAMPLETIME[*adc_sampletime];
 			sConfig.SingleDiff = ADC_SINGLE_ENDED;
 			sConfig.OffsetNumber = ADC_OFFSET_NONE;
 			sConfig.Offset = 0;
@@ -173,10 +241,26 @@ void update_adc_settings(void){
 			Error_Handler();
 			}
 			startADC();
-			//HAL_GetTick();
 		}
+
+		if(*adc_mode == 1){
+			//osimode
+			set_dma_circular(0);
+			ADC_ChannelConfTypeDef sConfig = {0};
+			//sConfig.Channel = ADC_CHANNEL_14;//ADC_CHANNEL_14; oder_2
+			sConfig.Rank = ADC_REGULAR_RANK_1;
+			sConfig.SamplingTime = SAMPLETIME[*adc_sampletime];
+			sConfig.SingleDiff = ADC_SINGLE_ENDED;
+			sConfig.OffsetNumber = ADC_OFFSET_NONE;
+			sConfig.Offset = 0;
+			if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+			{
+			Error_Handler();
+			}
+		}
+
 		adc_char_length = 180;
-		startADC();
+
 	}
 
 }
@@ -207,7 +291,7 @@ void myTask(void){
 	}else{
 		//Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)UpdateCharData);
 	}
-	transferring = 0;
+	//transferring = 0;
 }
 void callback_half_filled(void){
 	//HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
