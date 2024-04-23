@@ -72,6 +72,10 @@ extern volatile uint8_t transferring = 0;
 extern uint8_t adc_char_length = 180;
 extern volatile uint8_t activate_trigger = 0;
 
+volatile int Is_First_Captured = 0;
+volatile uint32_t IC_Val1 = 0;
+
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -166,8 +170,9 @@ int main(void)
 
   HAL_COMP_Start(&hcomp1);
  //HAL_TIM_OC_Start_IT(&htim1, TIM_CHANNEL_1);
-  //HAL_TIM_OnePulse_Start_IT(&htim1, TIM_CHANNEL_1);
-    //HAL_TIM_Base_Start(&htim1);
+//HAL_TIM_OnePulse_Start_IT(&htim1, TIM_CHANNEL_1);
+  // HAL_TIM_Base_Start(&htim1);
+  HAL_TIM_Base_Start_IT(&htim1);
   //HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
 
   dacx3202_init(&dacx3202);
@@ -183,7 +188,7 @@ int main(void)
   }
   //HAL_ADC_Start_IT(&hadc1);
 
-  //HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUFFER_LEN);
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUFFER_LEN);
 
   //HAL_DMA_Start(hdma, SrcAddress, DstAddress, DataLength)
 
@@ -322,9 +327,9 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.NbrOfConversion = 1;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T1_TRGO;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISINGFALLING;
+  hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
   hadc1.Init.OversamplingMode = DISABLE;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
@@ -336,7 +341,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_14;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_47CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
@@ -373,7 +378,7 @@ static void MX_COMP1_Init(void)
   hcomp1.Init.BlankingSrce = COMP_BLANKINGSRC_NONE;
   hcomp1.Init.Mode = COMP_POWERMODE_HIGHSPEED;
   hcomp1.Init.WindowMode = COMP_WINDOWMODE_DISABLE;
-  hcomp1.Init.TriggerMode = COMP_TRIGGERMODE_IT_FALLING;
+  hcomp1.Init.TriggerMode = COMP_TRIGGERMODE_IT_RISING;
   if (HAL_COMP_Init(&hcomp1) != HAL_OK)
   {
     Error_Handler();
@@ -534,7 +539,7 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 0 */
 
-  TIM_SlaveConfigTypeDef sSlaveConfig = {0};
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
   TIM_IC_InitTypeDef sConfigIC = {0};
 
@@ -542,9 +547,9 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 32000;
+  htim1.Init.Prescaler = 32000-1;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 1000;
+  htim1.Init.Period = 2000;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -552,16 +557,12 @@ static void MX_TIM1_Init(void)
   {
     Error_Handler();
   }
-  if (HAL_TIM_IC_Init(&htim1) != HAL_OK)
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
   {
     Error_Handler();
   }
-  sSlaveConfig.SlaveMode = TIM_SLAVEMODE_TRIGGER;
-  sSlaveConfig.InputTrigger = TIM_TS_ETRF;
-  sSlaveConfig.TriggerPolarity = TIM_TRIGGERPOLARITY_NONINVERTED;
-  sSlaveConfig.TriggerPrescaler = TIM_TRIGGERPRESCALER_DIV1;
-  sSlaveConfig.TriggerFilter = 0;
-  if (HAL_TIM_SlaveConfigSynchro(&htim1, &sSlaveConfig) != HAL_OK)
+  if (HAL_TIM_IC_Init(&htim1) != HAL_OK)
   {
     Error_Handler();
   }
@@ -572,15 +573,15 @@ static void MX_TIM1_Init(void)
   {
     Error_Handler();
   }
-  if (HAL_TIMEx_RemapConfig(&htim1, TIM_TIM1_ETR_COMP1|TIM_TIM1_TI1_COMP1) != HAL_OK)
-  {
-    Error_Handler();
-  }
   sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
   sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
   sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
   sConfigIC.ICFilter = 0;
   if (HAL_TIM_IC_ConfigChannel(&htim1, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIMEx_RemapConfig(&htim1, TIM_TIM1_TI1_COMP1) != HAL_OK)
   {
     Error_Handler();
   }
@@ -829,12 +830,13 @@ extern void setNewADC(){
 
 
 void HAL_COMP_TriggerCallback(COMP_HandleTypeDef *hcomp){
+	//printf("comp call  \r\n");
 	//HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
 	if(activate_trigger){
 		activate_trigger = false;
 		HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
 		HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUFFER_LEN);
-		printf("conversion started \r\n");
+
 	}
 }
 
@@ -843,13 +845,21 @@ void HAL_COMP_TriggerCallback(COMP_HandleTypeDef *hcomp){
 
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc){
 	//timer_val = __HAL_TIM_GET_COUNTER(&htim17);
-	UTIL_SEQ_SetTask(1 << CFG_TASK_HALF_FILLED, CFG_SCH_PRIO_0);
+	//UTIL_SEQ_SetTask(1 << CFG_TASK_HALF_FILLED, CFG_SCH_PRIO_0);
 }
 
 
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 //	HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
-	printf("got tim evenz \r\n");
+	//printf("got tim evenz \r\n");
+	if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1){
+			if (Is_First_Captured==0) // if the first rising edge is not captured
+			{
+				IC_Val1 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1); // read the first value
+				Is_First_Captured = 1;  // set the first captured as true
+				printf("Is_First_Captured %i \r\n",IC_Val1);
+			}
+		}
 
 }
 //Callback when buffer filled
@@ -857,7 +867,7 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc1){
 
 	//fillingFirstHalf=true;
-	UTIL_SEQ_SetTask(1 << CFG_TASK_MY_TASK, CFG_SCH_PRIO_0);
+	//UTIL_SEQ_SetTask(1 << CFG_TASK_MY_TASK, CFG_SCH_PRIO_0);
 	//timer_val = __HAL_TIM_GET_COUNTER(&htim17)-timer_val;
 	//printf("timerval: %u \r\n", timer_val);
 	//HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
