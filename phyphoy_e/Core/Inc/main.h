@@ -73,7 +73,7 @@ extern void adc_config_received();
 extern void setNewADC();
 extern void startADC();
 extern void set_dma_circular(uint8_t b);
-
+extern void set_dac(float val);
 extern void change_edge(uint8_t e);
 
 

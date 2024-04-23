@@ -52,8 +52,9 @@ uint8_t SAMPLETIME[8]={ADC_SAMPLETIME_2CYCLES_5,	// 0
 		  ADC_SAMPLETIME_24CYCLES_5,				// 3
 		  ADC_SAMPLETIME_47CYCLES_5,				// 4
 		  ADC_SAMPLETIME_92CYCLES_5,				// 5
-		  ADC_SAMPLETIME_247CYCLES_5,				// 6
+		  ADC_SAMPLETIME_247CYCLES_5,				// 6g
 		  ADC_SAMPLETIME_640CYCLES_5};
+
 
 uint8_t PRESCALER[]={ADC_CLOCK_ASYNC_DIV1,
 					ADC_CLOCK_ASYNC_DIV2,
@@ -172,9 +173,10 @@ void update_adc_settings(void){
 		adc_oversampling = &adc_config[4];
 		adc_edge = &adc_config[5];
 		memcpy(&dac_voltage[1],&adc_config[6],4);
-		float my_dac_val = (9.9-dac_voltage[1])*2.9/(9.9-(-8.18));
-		dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, my_dac_val);
+		float my_dac_val = (dac_voltage[1]+12)/8;
 
+		//dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, my_dac_val);
+		set_dac(my_dac_val);
 		//if(adc_mode == 1){
 		printf("adc mode: %i\r\n",*adc_mode);
 		printf("routing: %i\r\n",*adc_routing);
@@ -185,9 +187,33 @@ void update_adc_settings(void){
 
 		printf("0: %i ,1: %i ,2: %i ,3: %i, \r\n",adc_config[5],adc_config[6],adc_config[7],adc_config[8]);
 
-		if(dac_voltage[1]==4.0){
+		if(dac_voltage[1]==2.0){
 			printf("thresholdvalue works: \r\n");
 		}
+		/*
+		float my_trig_val_f = (9.9-dac_voltage[1])*2.9/(9.9-(-8.18));
+		dacx3202_set_voltage(&dacx3202, DACX3202_DAC_1, my_trig_val_f);
+		*/
+		/*
+
+		uint16_t my_trig_val_cor;
+		int16_t my_trig_val = (9.9-dac_voltage[1])*1023/(9.9-(-8.18));
+		printf("val: %i\r\n",my_trig_val);
+		printf("val: %i\r\n",my_trig_val_cor);
+
+		if(my_trig_val > 1023){
+			my_trig_val_cor = 1023;
+		}else if(my_trig_val < 0){
+			my_trig_val_cor = 0;
+		}else{
+			my_trig_val_cor = my_trig_val;
+		}
+
+		dacx3202_set_value(&dacx3202, DACX3202_DAC_1, my_trig_val_cor);
+		*/
+
+		//uint16_t dac_val = -18.36/1023*dac_voltage[1]+10.16;
+		//dacx3202_set_value(dacx3202, channel, value)
 
 		change_edge(*adc_edge);
 		HAL_ADC_Stop_DMA(&hadc1);

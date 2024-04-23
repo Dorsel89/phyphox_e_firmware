@@ -175,6 +175,7 @@ int main(void)
   dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, 1.59);
   dacx3202_power_up(&dacx3202, DACX3202_DAC_1);
   dacx3202_set_voltage(&dacx3202, DACX3202_DAC_1, 1.75);
+  //dacx3202_set_value(&dacx3202, DACX3202_DAC_0, 1023);
   //dacx3202_set_voltage(&dacx3202, DACX3202_DAC_1, threshold(2.0));
   myPointerToDMA = &adc_buf[0];
   if(HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED)== HAL_OK){
@@ -762,7 +763,11 @@ extern void change_edge(uint8_t e){
 	}else if(e==2){
 		hcomp1.Init.TriggerMode = COMP_TRIGGERMODE_IT_RISING_FALLING;
 	}
+	HAL_COMP_Init(&hcomp1);
 	HAL_COMP_Start(&hcomp1);
+}
+extern void set_dac(float val){
+	  dacx3202_set_voltage(&dacx3202, DACX3202_DAC_1, val);
 }
 
 extern void startADC(){
