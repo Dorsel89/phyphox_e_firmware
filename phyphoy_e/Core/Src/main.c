@@ -35,7 +35,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define ADC_BUFFER_LEN 180
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -56,7 +56,7 @@ IPCC_HandleTypeDef hipcc;
 RTC_HandleTypeDef hrtc;
 
 TIM_HandleTypeDef htim1;
-TIM_HandleTypeDef htim17;
+TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
 uint32_t adc_buf[ADC_BUFFER_LEN];
@@ -73,8 +73,15 @@ extern uint8_t adc_char_length = 180;
 extern volatile uint8_t activate_trigger = 0;
 
 volatile int Is_First_Captured = 0;
-volatile uint32_t IC_Val1 = 0;
 
+volatile uint32_t IC_Val1 = 0;
+volatile uint16_t timer_val;
+
+extern volatile uint16_t timestamp_trigger = 0;
+extern volatile uint16_t timestamp_adc_stop = 0;
+
+extern volatile uint16_t SAMPLES_PRE_TRIGGER = 90;
+extern volatile uint16_t SAMPLES_POST_TRIGGER = 180;
 
 /* USER CODE END PV */
 
@@ -88,8 +95,8 @@ static void MX_I2C1_Init(void);
 static void MX_COMP1_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_IPCC_Init(void);
-static void MX_TIM17_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_TIM2_Init(void);
 static void MX_RF_Init(void);
 /* USER CODE BEGIN PFP */
 
@@ -97,6 +104,8 @@ static uint8_t write_i2c(uint8_t addr, uint16_t reg, uint8_t *data_w, uint16_t l
 static uint8_t read_i2c(uint8_t addr, uint16_t reg, uint8_t *data_r, uint16_t len);
 uint16_t volatile timer_val;
 static float threshold(float target);
+
+
 
 /* USER CODE END PFP */
 
@@ -161,25 +170,29 @@ int main(void)
   MX_I2C1_Init();
   MX_COMP1_Init();
   MX_ADC1_Init();
-  MX_TIM17_Init();
   MX_TIM1_Init();
+  MX_TIM2_Init();
   MX_RF_Init();
   /* USER CODE BEGIN 2 */
   adc_buffer_p = &adc_buf[0];
   fillingFirstHalf = true;
 
-  HAL_COMP_Start(&hcomp1);
- //HAL_TIM_OC_Start_IT(&htim1, TIM_CHANNEL_1);
+
 //HAL_TIM_OnePulse_Start_IT(&htim1, TIM_CHANNEL_1);
-  // HAL_TIM_Base_Start(&htim1);
-  HAL_TIM_Base_Start_IT(&htim1);
+
+
   //HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+
+  //HAL_TIM_Base_Start_IT(&htim1);
+  //HAL_TIM_OC_Start_IT(&htim1, TIM_CHANNEL_1);
+
+  HAL_COMP_Start(&hcomp1);
 
   dacx3202_init(&dacx3202);
   dacx3202_power_up(&dacx3202, DACX3202_DAC_0);
   dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, 1.59);
   dacx3202_power_up(&dacx3202, DACX3202_DAC_1);
-  dacx3202_set_voltage(&dacx3202, DACX3202_DAC_1, 1.75);
+  dacx3202_set_voltage(&dacx3202, DACX3202_DAC_1, 2.2);
   //dacx3202_set_value(&dacx3202, DACX3202_DAC_0, 1023);
   //dacx3202_set_voltage(&dacx3202, DACX3202_DAC_1, threshold(2.0));
   myPointerToDMA = &adc_buf[0];
@@ -188,7 +201,8 @@ int main(void)
   }
   //HAL_ADC_Start_IT(&hadc1);
 
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUFFER_LEN);
+  start_circular_adc();
+
 
   //HAL_DMA_Start(hdma, SrcAddress, DstAddress, DataLength)
 
@@ -328,10 +342,14 @@ static void MX_ADC1_Init(void)
   hadc1.Init.NbrOfConversion = 1;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T1_TRGO;
-  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISINGFALLING;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
   hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
-  hadc1.Init.OversamplingMode = DISABLE;
+  hadc1.Init.OversamplingMode = ENABLE;
+  hadc1.Init.Oversampling.Ratio = ADC_OVERSAMPLING_RATIO_16;
+  hadc1.Init.Oversampling.RightBitShift = ADC_RIGHTBITSHIFT_4;
+  hadc1.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
+  hadc1.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
@@ -547,9 +565,9 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 32000-1;
+  htim1.Init.Prescaler = 16416-1;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 2000;
+  htim1.Init.Period = 5400-1;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -592,34 +610,50 @@ static void MX_TIM1_Init(void)
 }
 
 /**
-  * @brief TIM17 Initialization Function
+  * @brief TIM2 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_TIM17_Init(void)
+static void MX_TIM2_Init(void)
 {
 
-  /* USER CODE BEGIN TIM17_Init 0 */
+  /* USER CODE BEGIN TIM2_Init 0 */
 
-  /* USER CODE END TIM17_Init 0 */
+  /* USER CODE END TIM2_Init 0 */
 
-  /* USER CODE BEGIN TIM17_Init 1 */
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
 
-  /* USER CODE END TIM17_Init 1 */
-  htim17.Instance = TIM17;
-  htim17.Init.Prescaler = 32000-1;
-  htim17.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim17.Init.Period = 65535;
-  htim17.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim17.Init.RepetitionCounter = 0;
-  htim17.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim17) != HAL_OK)
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 16416-1;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 2500;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN TIM17_Init 2 */
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+  __HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
+  __HAL_TIM_ENABLE_IT(&htim2,TIM_IT_UPDATE);
 
-  /* USER CODE END TIM17_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
 
 }
 
@@ -771,6 +805,13 @@ extern void set_dac(float val){
 	  dacx3202_set_voltage(&dacx3202, DACX3202_DAC_1, val);
 }
 
+extern void start_circular_adc(){
+	HAL_TIM_OC_Start_IT(&htim1, TIM_CHANNEL_1);
+	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUFFER_LEN);
+	Is_First_Captured = 0;
+	printf("ready for new event\r\n");
+}
+
 extern void startADC(){
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUFFER_LEN);
 	//timer_val = __HAL_TIM_GET_COUNTER(&htim17);
@@ -830,18 +871,35 @@ extern void setNewADC(){
 
 
 void HAL_COMP_TriggerCallback(COMP_HandleTypeDef *hcomp){
+
 	//printf("comp call  \r\n");
 	//HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
+	/*
 	if(activate_trigger){
 		activate_trigger = false;
 		HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
 		HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUFFER_LEN);
 
-	}
+	}*/
+
 }
 
 
 //Callback when half filled
+
+void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef *htim)
+{
+	if (htim == &htim2){
+		timer_val = __HAL_TIM_GET_COUNTER(&htim1);
+		HAL_ADC_Stop_DMA(&hadc1);
+		HAL_TIM_Base_Stop_IT(&htim2);
+		timestamp_adc_stop = timer_val/10;
+		printf("trigger is no %i , ",timestamp_trigger);
+		printf(" end is at %i \r\n",timestamp_adc_stop);
+		UTIL_SEQ_SetTask(1 << CFG_TASK_MY_TASK, CFG_SCH_PRIO_0);
+  }
+}
+
 
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc){
 	//timer_val = __HAL_TIM_GET_COUNTER(&htim17);
@@ -852,12 +910,15 @@ void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc){
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 //	HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
 	//printf("got tim evenz \r\n");
+
 	if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1){
 			if (Is_First_Captured==0) // if the first rising edge is not captured
 			{
-				IC_Val1 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1); // read the first value
+				HAL_TIM_Base_Start_IT(&htim2);
+				IC_Val1 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
+				printf("triggersignal at %i \r\n",IC_Val1);
 				Is_First_Captured = 1;  // set the first captured as true
-				printf("Is_First_Captured %i \r\n",IC_Val1);
+				timestamp_trigger = IC_Val1/10;
 			}
 		}
 
@@ -871,8 +932,13 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc1){
 	//timer_val = __HAL_TIM_GET_COUNTER(&htim17)-timer_val;
 	//printf("timerval: %u \r\n", timer_val);
 	//HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
-	HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
-	printf("got adc data \r\n");
+
+	//HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
+
+	//IC_Val1 = /HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1); // read the first value
+	//uint32_t test = __HAL_TIM_GET_COUNTER(&htim1);
+	//printf("adc callback %i \r\n",test);
+	//printf("got adc data \r\n");
 
 }
 

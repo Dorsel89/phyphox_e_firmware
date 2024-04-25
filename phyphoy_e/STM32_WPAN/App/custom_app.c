@@ -130,6 +130,7 @@ static void Custom_Channelone_Send_Notification(void);
 extern void newConfigReceived(){
 
 	//HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+	/*
 	if(*myPointerToConfigArray ==0x01){
 		//startADC();
 		activate_trigger = 1;
@@ -137,7 +138,9 @@ extern void newConfigReceived(){
 		printf("activate trigger \r\n");
 	}else{
 		//TODO
-	}
+	}*/
+	start_circular_adc();
+
 }
 
 extern void dac_config_received(){
@@ -310,14 +313,48 @@ void update_dac_settings(void){
 	}
 }
 void myTask(void){
-	HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+	/*
 	if(myPointerToDMA!=NULL){
 		//memcpy(&UpdateCharData[0],myPointerToDMA,20);
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+adc_char_length/2);
-	}else{
-		//Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)UpdateCharData);
 	}
-	//transferring = 0;
+	*/
+	uint8_t data_buffer[360];
+	uint8_t* data_buffer_p = &data_buffer[0];
+	if(timestamp_trigger >SAMPLES_PRE_TRIGGER && timestamp_trigger+SAMPLES_POST_TRIGGER < ADC_BUFFER_LEN){
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+timestamp_trigger*2-SAMPLES_PRE_TRIGGER*2);//send pre trigger 180bytes
+		HAL_Delay(10);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+timestamp_trigger*2);//send first half of post trigger 180bytes
+		HAL_Delay(10);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+timestamp_trigger*2+(SAMPLES_POST_TRIGGER*2)/2);//send second half of post trigger 180bytes
+	}else if(timestamp_trigger >90 && timestamp_trigger >0){
+		printf("send else if \r\n");
+		uint16_t s = ADC_BUFFER_LEN-90+timestamp_trigger;
+		uint16_t s_length = (90-timestamp_trigger)*2;
+		uint16_t e = 0+90+timestamp_trigger;
+		uint16_t e_length = (90+timestamp_trigger)*2;
+		/*
+		memcpy(&data_buffer[0],(uint8_t *)myPointerToDMA+s*2,s_length);
+		memcpy(&data_buffer[0]+s_length,(uint8_t *)myPointerToDMA,e_length);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p);
+		HAL_Delay(1);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180);
+		*/
+
+	}else if(timestamp_trigger >ADC_BUFFER_LEN-90){
+		printf("send else if 2\r\n");
+
+		uint16_t s = timestamp_trigger;
+		uint16_t s_length = (90-timestamp_trigger)*2;
+		uint16_t e = 0+90+timestamp_trigger;
+		uint16_t e_length = (90+timestamp_trigger)*2;
+		//memcpy(&data_buffer[0],(uint8_t *)myPointerToDMA+s*2,s_length);
+		//memcpy(&data_buffer[0]+s_length,(uint8_t *)myPointerToDMA,e_length);
+		//Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p);
+		//HAL_Delay(1);
+		//Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180);
+	}
+
 }
 void callback_half_filled(void){
 	//HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);

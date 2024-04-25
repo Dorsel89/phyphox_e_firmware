@@ -47,9 +47,17 @@ extern uint8_t adc_config[20];
 extern volatile uint8_t trasferring;
 extern volatile uint8_t activate_trigger;
 
+extern volatile uint16_t timestamp_trigger;
+extern volatile uint16_t timestamp_adc_stop;
+
+extern volatile uint16_t SAMPLES_PRE_TRIGGER;
+extern volatile uint16_t SAMPLES_POST_TRIGGER;
+
 extern dacx3202_t dacx3202;
 
 extern uint8_t adc_char_length;
+
+#define ADC_BUFFER_LEN 540
 
 /* USER CODE END ET */
 
@@ -75,6 +83,8 @@ extern void startADC();
 extern void set_dma_circular(uint8_t b);
 extern void set_dac(float val);
 extern void change_edge(uint8_t e);
+
+extern void start_circular_adc();
 
 
 extern ADC_HandleTypeDef hadc1;
