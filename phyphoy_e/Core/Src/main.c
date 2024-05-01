@@ -140,12 +140,14 @@ volatile int Is_First_Captured = 0;
 volatile uint32_t IC_Val1 = 0;
 volatile uint16_t timer_val;
 
+volatile uint32_t reference_counts;
+
 extern volatile uint16_t timestamp_trigger = 0;
 extern volatile uint16_t timestamp_adc_stop = 0;
 
 extern volatile uint16_t SAMPLES_PRE_TRIGGER = 90;
 extern volatile uint16_t SAMPLES_POST_TRIGGER = 180;
-extern volatile uint16_t my_prescaler = 6656;//16417;
+extern volatile uint16_t my_prescaler = 6340;//16417;
 
 /* USER CODE END PV */
 
@@ -402,7 +404,7 @@ static void MX_ADC1_Init(void)
   /** Common config
   */
   hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV32;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV8;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
@@ -429,7 +431,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_14;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_247CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
@@ -635,9 +637,9 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 6656-1;
+  htim1.Init.Prescaler = 41002;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 5400-1;
+  htim1.Init.Period = 1000;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -698,9 +700,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 6656-1;
+  htim2.Init.Prescaler = 41002;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 2500;
+  htim2.Init.Period = 230;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -910,10 +912,9 @@ extern void start_circular_adc(){
 
 	HAL_GPIO_WritePin(LED_B_GPIO_Port, LED_B_Pin, 0);
 	//starting everything
-	HAL_TIM_OC_Start_IT(&htim1, TIM_CHANNEL_1);
-	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUFFER_LEN);
 	Is_First_Captured = 0;
-	printf("ready for new event\r\n");
+	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUFFER_LEN);
+	HAL_TIM_OC_Start_IT(&htim1, TIM_CHANNEL_1);
 
 }
 
@@ -1045,7 +1046,7 @@ extern void new_adc_init(){
 	}
 	if(*adc_mode == 1){
 		//oscillator mode
-		float prescaler_f = (12.5 + (OVERSAMPLING_DIVIDER[*adc_oversampling]*SAMPLETIME_CYCLES[*adc_sampletime]))*PRESCALER_DIVIDER[*adc_clock_prescaler]/(2.0*10.0);
+		float prescaler_f = ((12.5 + SAMPLETIME_CYCLES[*adc_sampletime])*OVERSAMPLING_DIVIDER[*adc_oversampling])*PRESCALER_DIVIDER[*adc_clock_prescaler]/(2.0);
 		my_prescaler = prescaler_f;
 		printf("OVERSAMPLING_DIVIDER: %i\r\n",OVERSAMPLING_DIVIDER[*adc_oversampling]);
 
@@ -1055,10 +1056,10 @@ extern void new_adc_init(){
 		printf("my_prescaler: %i\r\n",my_prescaler);
 		__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
 		__HAL_TIM_DISABLE_IT(&htim2,TIM_IT_UPDATE);
-		__HAL_TIM_SET_PRESCALER(&htim1,my_prescaler-1);
-		__HAL_TIM_SET_PRESCALER(&htim2,my_prescaler-1);
-		htim1.Instance->PSC = my_prescaler-1;
-		htim2.Instance->PSC = my_prescaler-1;
+		__HAL_TIM_SET_PRESCALER(&htim1,my_prescaler);
+		__HAL_TIM_SET_PRESCALER(&htim2,my_prescaler);
+		//htim1.Instance->PSC = my_prescaler;
+		//htim2.Instance->PSC = my_prescaler;
 		htim2.Instance->CNT = 0;
 		htim1.Instance->CNT = 0;
 		__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
@@ -1133,11 +1134,12 @@ void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef *htim)
 		timer_val = __HAL_TIM_GET_COUNTER(&htim1);
 		HAL_ADC_Stop_DMA(&hadc1);
 		HAL_TIM_Base_Stop_IT(&htim2);
-		timestamp_adc_stop = timer_val/10;
-		printf("trigger is no %i , ",timestamp_trigger);
-		printf(" end is at %i \r\n",timestamp_adc_stop);
-		UTIL_SEQ_SetTask(1 << CFG_TASK_MY_TASK, CFG_SCH_PRIO_0);
+		timestamp_adc_stop = 540*timer_val/(reference_counts);
+		//printf("trigger is no %i , ",timestamp_trigger);
+		//printf(" end is at %i \r\n",timestamp_adc_stop);
 		HAL_GPIO_WritePin(LED_B_GPIO_Port, LED_B_Pin, 1);
+		UTIL_SEQ_SetTask(1 << CFG_TASK_MY_TASK, CFG_SCH_PRIO_0);
+
 
   }
 }
@@ -1158,9 +1160,9 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 			{
 				HAL_TIM_Base_Start_IT(&htim2);
 				IC_Val1 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
-				printf("triggersignal at %i \r\n",IC_Val1);
+				//printf("triggersignal at %i \r\n",IC_Val1);
 				Is_First_Captured = 1;  // set the first captured as true
-				timestamp_trigger = IC_Val1/10;
+				timestamp_trigger = IC_Val1*540/(reference_counts);
 			}
 		}
 
@@ -1180,9 +1182,9 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc1){
 	//IC_Val1 = /HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1); // read the first value
 
 
-	uint32_t test = __HAL_TIM_GET_COUNTER(&htim1);
-	printf("adc callback %i \r\n",test);
-
+	reference_counts = __HAL_TIM_GET_COUNTER(&htim1);
+	htim1.Instance->CNT = 0;
+	printf("adc callback %i \r\n",reference_counts);
 
 }
 

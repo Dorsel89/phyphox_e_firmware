@@ -117,7 +117,9 @@ extern void adc_config_received(){
 void update_adc_settings(void){
 
 	//adc_char_length
+
 	if(p_adc_config != NULL){
+
 		new_adc_init();
 		/*
 
@@ -249,6 +251,11 @@ void myTask(void){
 		uint16_t e = timestamp_trigger+SAMPLES_POST_TRIGGER;
 		uint16_t e_length = (timestamp_trigger+SAMPLES_POST_TRIGGER)*2;
 
+		printf("s: %i\r\n",s);
+		printf("slength: %i\r\n",s_length);
+		printf("e: %i\r\n",e);
+		printf("elengh: %i\r\n",e_length);
+
 		memcpy(&data_buffer[0],(uint8_t *)myPointerToDMA+s*2,s_length);
 		memcpy(&data_buffer[0]+s_length,(uint8_t *)myPointerToDMA,e_length);
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p);
@@ -264,6 +271,10 @@ void myTask(void){
 		uint16_t s_length = ((ADC_BUFFER_LEN-timestamp_trigger)+SAMPLES_PRE_TRIGGER)*2;
 		uint16_t e = timestamp_trigger + SAMPLES_POST_TRIGGER - ADC_BUFFER_LEN;
 		uint16_t e_length = e*2;
+		printf("s: %i\r\n",s);
+		printf("slength: %i\r\n",s_length);
+		printf("e: %i\r\n",e);
+		printf("elengh: %i\r\n",e_length);;
 		memcpy(&data_buffer[0],(uint8_t *)myPointerToDMA+s*2,s_length);
 		memcpy(&data_buffer[0]+s_length,(uint8_t *)myPointerToDMA,e_length);
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p);
