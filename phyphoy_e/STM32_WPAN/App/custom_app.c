@@ -283,12 +283,20 @@ void myTask(void){
 	}
 
 }
-void callback_half_filled(void){
+void live_first_half(void){
 	//HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
 	if(myPointerToDMA!=NULL){
 		//memcpy(&UpdateCharData[0],myPointerToDMA,20);
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA);
 	}
+}
+void live_second_half(void){
+
+	if(myPointerToDMA!=NULL){
+		//memcpy(&UpdateCharData[0],myPointerToDMA,20);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA)+180;
+	}
+
 }
 /* USER CODE END PFP */
 

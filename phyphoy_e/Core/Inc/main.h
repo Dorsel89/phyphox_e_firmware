@@ -53,6 +53,13 @@ extern volatile uint16_t timestamp_adc_stop;
 extern volatile uint16_t SAMPLES_PRE_TRIGGER;
 extern volatile uint16_t SAMPLES_POST_TRIGGER;
 
+//first array index is ch1, second is ch2
+extern float CALI_LOW_FLOAT[2];
+extern int CALI_LOW_INT[2];
+extern float CALI_HIGH_FLOAT[2];
+extern int CALI_HIGH_INT[2];
+extern uint8_t CALIBRATET;
+
 extern volatile uint16_t my_prescaler;
 
 extern dacx3202_t dacx3202;

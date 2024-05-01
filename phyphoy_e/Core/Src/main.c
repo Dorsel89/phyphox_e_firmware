@@ -125,6 +125,13 @@ TIM_HandleTypeDef htim2;
 uint32_t adc_buf[ADC_BUFFER_LEN];
 bool fillingFirstHalf;
 
+uint8_t* adc_mode;
+uint8_t* adc_sampletime;
+uint8_t* adc_clock_prescaler;
+uint8_t* adc_oversampling;
+uint8_t* adc_routing;
+uint8_t* threshold;
+uint8_t* adc_edge;
 
 bool filled = false;
 
@@ -149,6 +156,12 @@ extern volatile uint16_t SAMPLES_PRE_TRIGGER = 90;
 extern volatile uint16_t SAMPLES_POST_TRIGGER = 180;
 extern volatile uint16_t my_prescaler = 6340;//16417;
 
+extern float CALI_LOW_FLOAT[2] = {0.0,0.0};
+extern int CALI_LOW_INT[2] = {2029,2029};
+extern float CALI_HIGH_FLOAT[2] = {10.02,10.02};
+extern int CALI_HIGH_INT[2] = {3472,3472};
+extern uint8_t CALIBRATET = 1;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -169,8 +182,6 @@ static void MX_RF_Init(void);
 static uint8_t write_i2c(uint8_t addr, uint16_t reg, uint8_t *data_w, uint16_t len);
 static uint8_t read_i2c(uint8_t addr, uint16_t reg, uint8_t *data_r, uint16_t len);
 uint16_t volatile timer_val;
-static float threshold(float target);
-
 
 
 /* USER CODE END PFP */
@@ -857,9 +868,6 @@ static uint8_t read_i2c(uint8_t addr, uint16_t reg, uint8_t *data_r, uint16_t le
 
 }
 
-static float threshold(float target){
-	return (target+12)*3/24.0;
-}
 
 extern void change_edge(uint8_t e){
 	HAL_COMP_Stop(&hcomp1);
@@ -939,13 +947,6 @@ extern void new_adc_init(){
 	HAL_ADC_Stop_DMA(&hadc1);
 	HAL_ADC_DeInit(&hadc1);
 
-	uint8_t* adc_mode;
-	uint8_t* adc_sampletime;
-	uint8_t* adc_clock_prescaler;
-	uint8_t* adc_oversampling;
-	uint8_t* adc_routing;
-	uint8_t* threshold;
-	uint8_t* adc_edge;
 	float dac_voltage[2]={0};
 
 	adc_mode = &adc_config[0];
@@ -956,7 +957,10 @@ extern void new_adc_init(){
 
 	adc_edge = &adc_config[5];
 	memcpy(&dac_voltage[1],&adc_config[6],4);
-	float my_dac_val = (dac_voltage[1]+12)/8;
+	//float my_dac_val = (dac_voltage[1]+12)/8;
+	int dac_val = ((dac_voltage[1]*1443/10.02)+2029)/4;
+	printf("dac value: %i\r\n",dac_val);
+	dacx3202_set_value(&dacx3202, DACX3202_DAC_1, dac_val);
 
 	//dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, my_dac_val);
 
@@ -972,7 +976,7 @@ extern void new_adc_init(){
 	printf("adc_edge: %i\r\n",*adc_edge);
 
 	printf("0: %i ,1: %i ,2: %i ,3: %i, \r\n",adc_config[5],adc_config[6],adc_config[7],adc_config[8]);
-
+	change_edge(*adc_edge);
 	ADC_ChannelConfTypeDef sConfig = {0};
 
 	hadc1.Instance = ADC1;
@@ -999,8 +1003,13 @@ extern void new_adc_init(){
 	hadc1.Init.ContinuousConvMode = ENABLE;
 	hadc1.Init.NbrOfConversion = 1;
 	hadc1.Init.DiscontinuousConvMode = DISABLE;
-	hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T1_TRGO;
-	hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+	if(*adc_mode == 1){
+		hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T1_TRGO;
+		hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+	}else if(*adc_mode == 0){
+		hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+		//hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+	}
 	hadc1.Init.DMAContinuousRequests = ENABLE;
 	hadc1.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
 	//hadc1.Init.OversamplingMode = ENABLE;
@@ -1066,6 +1075,11 @@ extern void new_adc_init(){
 		__HAL_TIM_ENABLE_IT(&htim2,TIM_IT_UPDATE);
 	}
 	HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
+	if(*adc_mode == 0){
+		printf("start live mode!\r\n");
+		HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, 180);
+	}
+
 
 }
 
@@ -1147,7 +1161,9 @@ void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef *htim)
 
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc){
 	//timer_val = __HAL_TIM_GET_COUNTER(&htim17);
-	//UTIL_SEQ_SetTask(1 << CFG_TASK_HALF_FILLED, CFG_SCH_PRIO_0);
+	if(*adc_mode == 0){
+		UTIL_SEQ_SetTask(1 << CFG_TASK_HALF_FILLED, CFG_SCH_PRIO_0);
+	}
 }
 
 
@@ -1168,8 +1184,8 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 
 }
 //Callback when buffer filled
-
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc1){
+//void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc1){
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 
 	//fillingFirstHalf=true;
 	//UTIL_SEQ_SetTask(1 << CFG_TASK_MY_TASK, CFG_SCH_PRIO_0);
@@ -1181,11 +1197,13 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc1){
 
 	//IC_Val1 = /HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1); // read the first value
 
-
-	reference_counts = __HAL_TIM_GET_COUNTER(&htim1);
-	htim1.Instance->CNT = 0;
-	printf("adc callback %i \r\n",reference_counts);
-
+	if(*adc_mode == 1){
+		reference_counts = __HAL_TIM_GET_COUNTER(&htim1);
+		htim1.Instance->CNT = 0;
+		printf("adc callback %i \r\n",reference_counts);
+	}else if(*adc_mode == 0){
+		UTIL_SEQ_SetTask(1 << CFG_TASK_FILLED, CFG_SCH_PRIO_0);
+	}
 }
 
 
