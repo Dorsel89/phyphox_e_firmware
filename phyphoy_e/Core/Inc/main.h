@@ -53,6 +53,8 @@ extern volatile uint16_t timestamp_adc_stop;
 extern volatile uint16_t SAMPLES_PRE_TRIGGER;
 extern volatile uint16_t SAMPLES_POST_TRIGGER;
 
+extern volatile uint16_t my_prescaler;
+
 extern dacx3202_t dacx3202;
 
 extern uint8_t adc_char_length;
@@ -85,6 +87,7 @@ extern void set_dac(float val);
 extern void change_edge(uint8_t e);
 
 extern void start_circular_adc();
+extern void new_adc_init();
 
 
 extern ADC_HandleTypeDef hadc1;

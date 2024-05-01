@@ -46,43 +46,7 @@ typedef struct
 } Custom_App_Context_t;
 
 /* USER CODE BEGIN PTD */
-uint8_t SAMPLETIME[8]={ADC_SAMPLETIME_2CYCLES_5,	// 0
-		  ADC_SAMPLETIME_6CYCLES_5,					// 1
-		  ADC_SAMPLETIME_12CYCLES_5,				// 2
-		  ADC_SAMPLETIME_24CYCLES_5,				// 3
-		  ADC_SAMPLETIME_47CYCLES_5,				// 4
-		  ADC_SAMPLETIME_92CYCLES_5,				// 5
-		  ADC_SAMPLETIME_247CYCLES_5,				// 6g
-		  ADC_SAMPLETIME_640CYCLES_5};
 
-
-uint8_t PRESCALER[]={ADC_CLOCK_ASYNC_DIV1,
-					ADC_CLOCK_ASYNC_DIV2,
-					ADC_CLOCK_ASYNC_DIV4,
-					ADC_CLOCK_ASYNC_DIV8,
-					ADC_CLOCK_ASYNC_DIV16,
-					ADC_CLOCK_ASYNC_DIV32
-};
-uint8_t OVERSAMPLING[]={ADC_OVERSAMPLING_RATIO_2,
-						ADC_OVERSAMPLING_RATIO_2,
-						ADC_OVERSAMPLING_RATIO_4,
-						ADC_OVERSAMPLING_RATIO_8,
-						ADC_OVERSAMPLING_RATIO_16,
-						ADC_OVERSAMPLING_RATIO_32,
-						ADC_OVERSAMPLING_RATIO_64,
-						ADC_OVERSAMPLING_RATIO_128,
-						ADC_OVERSAMPLING_RATIO_256
-};
-uint8_t BITSHIFT[]={ADC_RIGHTBITSHIFT_NONE,
-						ADC_RIGHTBITSHIFT_1,
-						ADC_RIGHTBITSHIFT_2,
-						ADC_RIGHTBITSHIFT_3,
-						ADC_RIGHTBITSHIFT_4,
-						ADC_RIGHTBITSHIFT_5,
-						ADC_RIGHTBITSHIFT_6,
-						ADC_RIGHTBITSHIFT_7,
-						ADC_RIGHTBITSHIFT_8
-};
 
 /* USER CODE END PTD */
 
@@ -152,74 +116,14 @@ extern void adc_config_received(){
 
 void update_adc_settings(void){
 
-
-
-	uint8_t* adc_mode;
-	uint8_t* adc_sampletime;
-	uint8_t* adc_clock_prescaler;
-	uint8_t* adc_oversampling;
-	uint8_t* adc_routing;
-	uint8_t* threshold;
-	uint8_t* adc_edge;
-	float dac_voltage[2]={0};
-
 	//adc_char_length
-
-
 	if(p_adc_config != NULL){
-
-
-		adc_mode = &adc_config[0];
-		adc_routing = &adc_config[1];
-		adc_sampletime = &adc_config[2];
-		adc_clock_prescaler = &adc_config[3];
-		adc_oversampling = &adc_config[4];
-		adc_edge = &adc_config[5];
-		memcpy(&dac_voltage[1],&adc_config[6],4);
-		float my_dac_val = (dac_voltage[1]+12)/8;
-
-		//dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, my_dac_val);
-		set_dac(my_dac_val);
-		//if(adc_mode == 1){
-		printf("adc mode: %i\r\n",*adc_mode);
-		printf("routing: %i\r\n",*adc_routing);
-		printf("adc_sampletime: %i\r\n",*adc_sampletime);
-		printf("adc_clock_prescaler: %i\r\n",*adc_clock_prescaler);
-		printf("adc_oversampling: %i\r\n",*adc_oversampling);
-		printf("adc_edge: %i\r\n",*adc_edge);
-
-		printf("0: %i ,1: %i ,2: %i ,3: %i, \r\n",adc_config[5],adc_config[6],adc_config[7],adc_config[8]);
-
-		if(dac_voltage[1]==2.0){
-			printf("thresholdvalue works: \r\n");
-		}
+		new_adc_init();
 		/*
-		float my_trig_val_f = (9.9-dac_voltage[1])*2.9/(9.9-(-8.18));
-		dacx3202_set_voltage(&dacx3202, DACX3202_DAC_1, my_trig_val_f);
-		*/
-		/*
-
-		uint16_t my_trig_val_cor;
-		int16_t my_trig_val = (9.9-dac_voltage[1])*1023/(9.9-(-8.18));
-		printf("val: %i\r\n",my_trig_val);
-		printf("val: %i\r\n",my_trig_val_cor);
-
-		if(my_trig_val > 1023){
-			my_trig_val_cor = 1023;
-		}else if(my_trig_val < 0){
-			my_trig_val_cor = 0;
-		}else{
-			my_trig_val_cor = my_trig_val;
-		}
-
-		dacx3202_set_value(&dacx3202, DACX3202_DAC_1, my_trig_val_cor);
-		*/
-
-		//uint16_t dac_val = -18.36/1023*dac_voltage[1]+10.16;
-		//dacx3202_set_value(dacx3202, channel, value)
 
 		change_edge(*adc_edge);
 		HAL_ADC_Stop_DMA(&hadc1);
+		//HAL_ADC_DeInit(&hadc1);
 		hadc1.Instance = ADC1;
 		hadc1.Init.ClockPrescaler = PRESCALER[*adc_clock_prescaler];
 		hadc1.Init.Resolution = ADC_RESOLUTION_12B;
@@ -230,28 +134,31 @@ void update_adc_settings(void){
 		hadc1.Init.ContinuousConvMode = ENABLE;
 		hadc1.Init.NbrOfConversion = 1;
 		hadc1.Init.DiscontinuousConvMode = DISABLE;
-		hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-		hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-		hadc1.Init.DMAContinuousRequests = DISABLE;
-		hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+		hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T1_TRGO;
+		hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+		hadc1.Init.DMAContinuousRequests = ENABLE;
+		hadc1.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
 		if(*adc_oversampling==0){
 			hadc1.Init.OversamplingMode = DISABLE;
 			hadc1.Init.Oversampling.Ratio = OVERSAMPLING[*adc_oversampling];
 		}else{
 			hadc1.Init.OversamplingMode = ENABLE;
 			hadc1.Init.Oversampling.Ratio = OVERSAMPLING[*adc_oversampling];
+			hadc1.Init.Oversampling.RightBitShift = BITSHIFT[*adc_oversampling];
+			hadc1.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
+			hadc1.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
 		}
-		hadc1.Init.Oversampling.RightBitShift = BITSHIFT[*adc_oversampling];
-		hadc1.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
-		hadc1.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
+
 		if (HAL_ADC_Init(&hadc1) != HAL_OK)
 		{
 		Error_Handler();
 		}
-		ADC_ChannelConfTypeDef sConfig = {0};
-		if(adc_routing == 1){
+		*/
+		/*
+		static ADC_ChannelConfTypeDef sConfig = {0};
+		if(*adc_routing == 1){
 			sConfig.Channel = ADC_CHANNEL_14;
-		}else if(adc_routing == 2){
+		}else if(*adc_routing == 2){
 			sConfig.Channel = ADC_CHANNEL_2;
 		}
 
@@ -273,9 +180,9 @@ void update_adc_settings(void){
 		}
 
 		if(*adc_mode == 1){
-			//osimode
-			set_dma_circular(0);
-			ADC_ChannelConfTypeDef sConfig = {0};
+			//oscillator-mode
+			set_dma_circular(1);
+
 			//sConfig.Channel = ADC_CHANNEL_14;//ADC_CHANNEL_14; oder_2
 			sConfig.Rank = ADC_REGULAR_RANK_1;
 			sConfig.SamplingTime = SAMPLETIME[*adc_sampletime];
@@ -286,11 +193,18 @@ void update_adc_settings(void){
 			{
 			Error_Handler();
 			}
+			my_prescaler = (12.5 + (uint32_t)(OVERSAMPLING_DIVIDER[*adc_oversampling]*SAMPLETIME_CYCLES[*adc_sampletime]))*PRESCALER_DIVIDER[*adc_clock_prescaler]/(2*10);
+			printf("OVERSAMPLING_DIVIDER: %i\r\n",OVERSAMPLING_DIVIDER[*adc_oversampling]);
+			printf("SAMPLETIME_CYCLES: %i\r\n",(uint32_t)(OVERSAMPLING_DIVIDER[*adc_oversampling]*SAMPLETIME_CYCLES[*adc_sampletime]));
+			printf("PRESCALER_DIVIDER: %i\r\n",PRESCALER_DIVIDER[*adc_clock_prescaler]);
+			printf("my_prescaler: %i\r\n",my_prescaler);
+			start_circular_adc();
 		}
-
-		adc_char_length = 180;
+		*/
+		//adc_char_length = 180;
 
 	}
+
 
 }
 
@@ -319,40 +233,42 @@ void myTask(void){
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+adc_char_length/2);
 	}
 	*/
-	uint8_t data_buffer[360];
+	printf("lets send data\r\n");
+	uint8_t data_buffer[540];
 	uint8_t* data_buffer_p = &data_buffer[0];
 	if(timestamp_trigger >SAMPLES_PRE_TRIGGER && timestamp_trigger+SAMPLES_POST_TRIGGER < ADC_BUFFER_LEN){
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+timestamp_trigger*2-SAMPLES_PRE_TRIGGER*2);//send pre trigger 180bytes
-		HAL_Delay(10);
+		//HAL_Delay(10);
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+timestamp_trigger*2);//send first half of post trigger 180bytes
-		HAL_Delay(10);
+		//HAL_Delay(10);
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+timestamp_trigger*2+(SAMPLES_POST_TRIGGER*2)/2);//send second half of post trigger 180bytes
-	}else if(timestamp_trigger >90 && timestamp_trigger >0){
+	}else if(timestamp_trigger < SAMPLES_PRE_TRIGGER){
 		printf("send else if \r\n");
-		uint16_t s = ADC_BUFFER_LEN-90+timestamp_trigger;
-		uint16_t s_length = (90-timestamp_trigger)*2;
-		uint16_t e = 0+90+timestamp_trigger;
-		uint16_t e_length = (90+timestamp_trigger)*2;
-		/*
+		uint16_t s = (ADC_BUFFER_LEN-1)-(SAMPLES_PRE_TRIGGER-timestamp_trigger);
+		uint16_t s_length = (SAMPLES_PRE_TRIGGER-timestamp_trigger)*2;
+		uint16_t e = timestamp_trigger+SAMPLES_POST_TRIGGER;
+		uint16_t e_length = (timestamp_trigger+SAMPLES_POST_TRIGGER)*2;
+
 		memcpy(&data_buffer[0],(uint8_t *)myPointerToDMA+s*2,s_length);
 		memcpy(&data_buffer[0]+s_length,(uint8_t *)myPointerToDMA,e_length);
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p);
-		HAL_Delay(1);
-		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180);
-		*/
 
-	}else if(timestamp_trigger >ADC_BUFFER_LEN-90){
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+360);
+
+
+	}else if(timestamp_trigger+ SAMPLES_POST_TRIGGER>ADC_BUFFER_LEN){
 		printf("send else if 2\r\n");
 
-		uint16_t s = timestamp_trigger;
-		uint16_t s_length = (90-timestamp_trigger)*2;
-		uint16_t e = 0+90+timestamp_trigger;
-		uint16_t e_length = (90+timestamp_trigger)*2;
-		//memcpy(&data_buffer[0],(uint8_t *)myPointerToDMA+s*2,s_length);
-		//memcpy(&data_buffer[0]+s_length,(uint8_t *)myPointerToDMA,e_length);
-		//Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p);
-		//HAL_Delay(1);
-		//Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180);
+		uint16_t s = timestamp_trigger-SAMPLES_PRE_TRIGGER;
+		uint16_t s_length = ((ADC_BUFFER_LEN-timestamp_trigger)+SAMPLES_PRE_TRIGGER)*2;
+		uint16_t e = timestamp_trigger + SAMPLES_POST_TRIGGER - ADC_BUFFER_LEN;
+		uint16_t e_length = e*2;
+		memcpy(&data_buffer[0],(uint8_t *)myPointerToDMA+s*2,s_length);
+		memcpy(&data_buffer[0]+s_length,(uint8_t *)myPointerToDMA,e_length);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+360);
 	}
 
 }

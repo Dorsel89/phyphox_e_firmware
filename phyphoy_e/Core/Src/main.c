@@ -30,6 +30,69 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+uint32_t flash_address = 0x08080000;
+
+uint8_t SAMPLETIME[8]={ADC_SAMPLETIME_2CYCLES_5,	// 0
+		  ADC_SAMPLETIME_6CYCLES_5,					// 1
+		  ADC_SAMPLETIME_12CYCLES_5,				// 2
+		  ADC_SAMPLETIME_24CYCLES_5,				// 3
+		  ADC_SAMPLETIME_47CYCLES_5,				// 4
+		  ADC_SAMPLETIME_92CYCLES_5,				// 5
+		  ADC_SAMPLETIME_247CYCLES_5,				// 6g
+		  ADC_SAMPLETIME_640CYCLES_5};
+float SAMPLETIME_CYCLES[8]={2.5,	// 0
+		  6.5,					// 1
+		  12.5,				// 2
+		  24.5,				// 3
+		  47.5,				// 4
+		  92.5,				// 5
+		  247.5,				// 6g
+		  640.5};
+
+uint8_t PRESCALER[]={ADC_CLOCK_ASYNC_DIV1,
+					ADC_CLOCK_ASYNC_DIV2,
+					ADC_CLOCK_ASYNC_DIV4,
+					ADC_CLOCK_ASYNC_DIV8,
+					ADC_CLOCK_ASYNC_DIV16,
+					ADC_CLOCK_ASYNC_DIV32
+};
+uint8_t PRESCALER_DIVIDER[]={1,
+					2,
+					4,
+					8,
+					16,
+					32
+};
+uint8_t OVERSAMPLING[]={ADC_OVERSAMPLING_RATIO_2,
+						ADC_OVERSAMPLING_RATIO_2,
+						ADC_OVERSAMPLING_RATIO_4,
+						ADC_OVERSAMPLING_RATIO_8,
+						ADC_OVERSAMPLING_RATIO_16,
+						ADC_OVERSAMPLING_RATIO_32,
+						ADC_OVERSAMPLING_RATIO_64,
+						ADC_OVERSAMPLING_RATIO_128,
+						ADC_OVERSAMPLING_RATIO_256
+};
+uint16_t OVERSAMPLING_DIVIDER[9]={1,
+						2,
+						4,
+						8,
+						16,
+						32,
+						64,
+						128,
+						256
+};
+uint8_t BITSHIFT[]={ADC_RIGHTBITSHIFT_NONE,
+						ADC_RIGHTBITSHIFT_1,
+						ADC_RIGHTBITSHIFT_2,
+						ADC_RIGHTBITSHIFT_3,
+						ADC_RIGHTBITSHIFT_4,
+						ADC_RIGHTBITSHIFT_5,
+						ADC_RIGHTBITSHIFT_6,
+						ADC_RIGHTBITSHIFT_7,
+						ADC_RIGHTBITSHIFT_8
+};
 
 /* USER CODE END PTD */
 
@@ -82,6 +145,7 @@ extern volatile uint16_t timestamp_adc_stop = 0;
 
 extern volatile uint16_t SAMPLES_PRE_TRIGGER = 90;
 extern volatile uint16_t SAMPLES_POST_TRIGGER = 180;
+extern volatile uint16_t my_prescaler = 6656;//16417;
 
 /* USER CODE END PV */
 
@@ -200,13 +264,19 @@ int main(void)
 	  //HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
   }
   //HAL_ADC_Start_IT(&hadc1);
+  my_prescaler = 16417;
 
-  start_circular_adc();
+  //start_circular_adc();
 
 
   //HAL_DMA_Start(hdma, SrcAddress, DstAddress, DataLength)
 
-
+/*
+  HAL_FLASH_Unlock();
+  uint64_t test =3;
+  HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, flash_address, test);
+  HAL_FLASH_Lock();
+  */
   /* USER CODE END 2 */
 
   /* Init code for STM32_WPAN */
@@ -359,7 +429,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_14;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_247CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
@@ -565,7 +635,7 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 16416-1;
+  htim1.Init.Prescaler = 6656-1;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim1.Init.Period = 5400-1;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -628,7 +698,7 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 16416-1;
+  htim2.Init.Prescaler = 6656-1;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 2500;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -806,10 +876,45 @@ extern void set_dac(float val){
 }
 
 extern void start_circular_adc(){
+
+	//init timer
+
+	//HAL_TIM_OC_Stop_IT(&htim1, TIM_CHANNEL_1);
+	//HAL_TIM_Base_Stop(&htim2);
+
+	/*
+
+	htim1.Init.Prescaler = my_prescaler-1;
+	htim2.Init.Prescaler = my_prescaler-1;
+
+
+	if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+	{
+	Error_Handler();
+	}
+
+	__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
+	__HAL_TIM_DISABLE_IT(&htim2,TIM_IT_UPDATE);
+
+	if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+	{
+	Error_Handler();
+	}
+
+
+	__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
+	__HAL_TIM_ENABLE_IT(&htim2,TIM_IT_UPDATE);
+	*/
+	//__HAL_TIM_SET_PRESCALER(&htim1,my_prescaler-1);
+	//__HAL_TIM_SET_PRESCALER(&htim2,my_prescaler-1);
+
+	HAL_GPIO_WritePin(LED_B_GPIO_Port, LED_B_Pin, 0);
+	//starting everything
 	HAL_TIM_OC_Start_IT(&htim1, TIM_CHANNEL_1);
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUFFER_LEN);
 	Is_First_Captured = 0;
 	printf("ready for new event\r\n");
+
 }
 
 extern void startADC(){
@@ -826,6 +931,141 @@ extern void set_dma_circular(uint8_t b){
 	}else{
 		hdma_adc1.Init.Mode = DMA_NORMAL;
 	}
+}
+
+extern void new_adc_init(){
+
+	HAL_ADC_Stop_DMA(&hadc1);
+	HAL_ADC_DeInit(&hadc1);
+
+	uint8_t* adc_mode;
+	uint8_t* adc_sampletime;
+	uint8_t* adc_clock_prescaler;
+	uint8_t* adc_oversampling;
+	uint8_t* adc_routing;
+	uint8_t* threshold;
+	uint8_t* adc_edge;
+	float dac_voltage[2]={0};
+
+	adc_mode = &adc_config[0];
+	adc_routing = &adc_config[1];
+	adc_sampletime = &adc_config[2];
+	adc_clock_prescaler = &adc_config[3];
+	adc_oversampling = &adc_config[4];
+
+	adc_edge = &adc_config[5];
+	memcpy(&dac_voltage[1],&adc_config[6],4);
+	float my_dac_val = (dac_voltage[1]+12)/8;
+
+	//dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, my_dac_val);
+
+	//disable dac for now!
+	//set_dac(my_dac_val);
+
+	//if(adc_mode == 1){
+	printf("adc mode: %i\r\n",*adc_mode);
+	printf("routing: %i\r\n",*adc_routing);
+	printf("adc_sampletime: %i\r\n",*adc_sampletime);
+	printf("adc_clock_prescaler: %i\r\n",*adc_clock_prescaler);
+	printf("adc_oversampling: %i\r\n",*adc_oversampling);
+	printf("adc_edge: %i\r\n",*adc_edge);
+
+	printf("0: %i ,1: %i ,2: %i ,3: %i, \r\n",adc_config[5],adc_config[6],adc_config[7],adc_config[8]);
+
+	ADC_ChannelConfTypeDef sConfig = {0};
+
+	hadc1.Instance = ADC1;
+	//hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV32;
+	if(*adc_clock_prescaler ==0){
+		hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
+	}else if(*adc_clock_prescaler ==1){
+		hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV2;
+	}else if(*adc_clock_prescaler ==2){
+		hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV4;
+	}else if(*adc_clock_prescaler ==3){
+		hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV8;
+	}else if(*adc_clock_prescaler ==4){
+		hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV16;
+	}else if(*adc_clock_prescaler ==5){
+		hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV32;
+	}
+	//hadc1.Init.ClockPrescaler = PRESCALER[*adc_clock_prescaler];
+	hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+	hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+	hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+	hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+	hadc1.Init.LowPowerAutoWait = DISABLE;
+	hadc1.Init.ContinuousConvMode = ENABLE;
+	hadc1.Init.NbrOfConversion = 1;
+	hadc1.Init.DiscontinuousConvMode = DISABLE;
+	hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T1_TRGO;
+	hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+	hadc1.Init.DMAContinuousRequests = ENABLE;
+	hadc1.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
+	//hadc1.Init.OversamplingMode = ENABLE;
+	//hadc1.Init.Oversampling.Ratio = ADC_OVERSAMPLING_RATIO_16;
+	//hadc1.Init.Oversampling.RightBitShift = ADC_RIGHTBITSHIFT_4;
+	//hadc1.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
+
+	if(*adc_oversampling==0){
+		hadc1.Init.OversamplingMode = DISABLE;
+		hadc1.Init.Oversampling.Ratio = OVERSAMPLING[*adc_oversampling];
+	}else{
+		hadc1.Init.OversamplingMode = ENABLE;
+		hadc1.Init.Oversampling.Ratio = OVERSAMPLING[*adc_oversampling];
+		hadc1.Init.Oversampling.RightBitShift = BITSHIFT[*adc_oversampling];
+		hadc1.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
+		hadc1.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
+	}
+
+
+	hadc1.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
+	if (HAL_ADC_Init(&hadc1) != HAL_OK)
+	{
+	Error_Handler();
+	}
+
+	/** Configure Regular Channel
+	*/
+	if(*adc_routing == 1){
+		sConfig.Channel = ADC_CHANNEL_14;
+	}else if(*adc_routing == 2){
+		sConfig.Channel = ADC_CHANNEL_2;
+	}
+	//sConfig.Channel = ADC_CHANNEL_14;
+	sConfig.Rank = ADC_REGULAR_RANK_1;
+	//sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
+	sConfig.SamplingTime = SAMPLETIME[*adc_sampletime];
+	sConfig.SingleDiff = ADC_SINGLE_ENDED;
+	sConfig.OffsetNumber = ADC_OFFSET_NONE;
+	sConfig.Offset = 0;
+	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+	{
+	Error_Handler();
+	}
+	if(*adc_mode == 1){
+		//oscillator mode
+		float prescaler_f = (12.5 + (OVERSAMPLING_DIVIDER[*adc_oversampling]*SAMPLETIME_CYCLES[*adc_sampletime]))*PRESCALER_DIVIDER[*adc_clock_prescaler]/(2.0*10.0);
+		my_prescaler = prescaler_f;
+		printf("OVERSAMPLING_DIVIDER: %i\r\n",OVERSAMPLING_DIVIDER[*adc_oversampling]);
+
+		printf("OVERSAMPLING_DIVIDER[*adc_oversampling] %i\r\n",OVERSAMPLING_DIVIDER[*adc_oversampling]);
+		printf("SAMPLETIME_CYCLES: %i\r\n",(uint32_t)(OVERSAMPLING_DIVIDER[*adc_oversampling]*SAMPLETIME_CYCLES[*adc_sampletime]));
+		printf("PRESCALER_DIVIDER: %i\r\n",PRESCALER_DIVIDER[*adc_clock_prescaler]);
+		printf("my_prescaler: %i\r\n",my_prescaler);
+		__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
+		__HAL_TIM_DISABLE_IT(&htim2,TIM_IT_UPDATE);
+		__HAL_TIM_SET_PRESCALER(&htim1,my_prescaler-1);
+		__HAL_TIM_SET_PRESCALER(&htim2,my_prescaler-1);
+		htim1.Instance->PSC = my_prescaler-1;
+		htim2.Instance->PSC = my_prescaler-1;
+		htim2.Instance->CNT = 0;
+		htim1.Instance->CNT = 0;
+		__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
+		__HAL_TIM_ENABLE_IT(&htim2,TIM_IT_UPDATE);
+	}
+	HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
+
 }
 
 extern void setNewADC(){
@@ -897,6 +1137,8 @@ void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef *htim)
 		printf("trigger is no %i , ",timestamp_trigger);
 		printf(" end is at %i \r\n",timestamp_adc_stop);
 		UTIL_SEQ_SetTask(1 << CFG_TASK_MY_TASK, CFG_SCH_PRIO_0);
+		HAL_GPIO_WritePin(LED_B_GPIO_Port, LED_B_Pin, 1);
+
   }
 }
 
@@ -929,16 +1171,18 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc1){
 
 	//fillingFirstHalf=true;
 	//UTIL_SEQ_SetTask(1 << CFG_TASK_MY_TASK, CFG_SCH_PRIO_0);
-	//timer_val = __HAL_TIM_GET_COUNTER(&htim17)-timer_val;
-	//printf("timerval: %u \r\n", timer_val);
+	//timer_val = __HAL_TIM_GET_COUNTER(&htim1);
+	//printf("timerval when full: %u \r\n", timer_val);
 	//HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
 
 	//HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
 
 	//IC_Val1 = /HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1); // read the first value
-	//uint32_t test = __HAL_TIM_GET_COUNTER(&htim1);
-	//printf("adc callback %i \r\n",test);
-	//printf("got adc data \r\n");
+
+
+	uint32_t test = __HAL_TIM_GET_COUNTER(&htim1);
+	printf("adc callback %i \r\n",test);
+
 
 }
 
