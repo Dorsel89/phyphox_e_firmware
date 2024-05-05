@@ -154,6 +154,9 @@ extern volatile uint16_t SAMPLES_PRE_TRIGGER = 90;
 extern volatile uint16_t SAMPLES_POST_TRIGGER = 270;
 extern volatile uint16_t my_prescaler = 30;//16417;
 
+
+extern float CALI_DAC_INT[2] = {0,0};
+
 extern float CALI_LOW_FLOAT[2] = {0.0,0.0};
 extern int CALI_LOW_INT[2] = {2029,2029};
 extern float CALI_HIGH_FLOAT[2] = {10.02,10.02};
@@ -266,7 +269,8 @@ int main(void)
   dacx3202_power_up(&dacx3202, DACX3202_DAC_0);
   dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, 1.59);
   dacx3202_power_up(&dacx3202, DACX3202_DAC_1);
-  dacx3202_set_voltage(&dacx3202, DACX3202_DAC_1, 2.2);
+  //dacx3202_set_voltage(&dacx3202, DACX3202_DAC_1, 2.2);
+  dacx3202_set_value(&dacx3202, DACX3202_DAC_1, 0);
 
   myPointerToDMA = &adc_buf[0];
   if(HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED)== HAL_OK){
@@ -277,12 +281,29 @@ int main(void)
   //start_circular_adc();
 
 
+  //HAL_ADC_Start_DMA_(&hadc1, (uint32_t*)adc_buf, ADC_BUFFER_LEN);
+  HAL_ADC_Start(&hadc1);
+  HAL_ADC_PollForConversion(&hadc1, 1000);
+  uint16_t dac_calibration_value = HAL_ADC_GetValue(&hadc1);
+  HAL_ADC_Stop(&hadc1);
+  printf("dac_calibration_valuie low%i\r\n",dac_calibration_value);
+  CALI_DAC_INT[0]=dac_calibration_value;
+
+  dacx3202_set_value(&dacx3202, DACX3202_DAC_1, 1023);
+  HAL_ADC_Start(&hadc1);
+	HAL_ADC_PollForConversion(&hadc1, 1000);
+	dac_calibration_value = HAL_ADC_GetValue(&hadc1);
+	HAL_ADC_Stop(&hadc1);
+	printf("dac_calibration_valuie high %i\r\n",dac_calibration_value);
+	CALI_DAC_INT[1]=dac_calibration_value;
 
 /*
   HAL_FLASH_Unlock();
   uint64_t test =3;
   HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, flash_address, test);
   HAL_FLASH_Lock();
+
+
 
 
 
@@ -413,13 +434,13 @@ static void MX_ADC1_Init(void)
   /** Common config
   */
   hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV8;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
-  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.NbrOfConversion = 1;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
@@ -438,9 +459,9 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_14;
+  sConfig.Channel = ADC_CHANNEL_5;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_24CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_247CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
@@ -958,8 +979,8 @@ extern void new_adc_init(){
 
 
 	memcpy(&dac_voltage[1],&adc_config[6],4);
-	int dac_val = ((dac_voltage[1]*1443/10.02)+2029)/4;
-	printf("dac value: %i\r\n",dac_val);
+	int dac_val_nc = ((dac_voltage[1]*1443/10.02)+2029);
+	int dac_val = CALI_DAC_INT[0]+(1023/CALI_DAC_INT[1])*dac_val_nc;
 	dacx3202_set_value(&dacx3202, DACX3202_DAC_1, dac_val);
 
 	//dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, my_dac_val);
