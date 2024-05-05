@@ -236,32 +236,46 @@ void myTask(void){
 	}
 	*/
 	printf("lets send data\r\n");
-	uint8_t data_buffer[540];
+	uint8_t data_buffer[180*5];
 	uint8_t* data_buffer_p = &data_buffer[0];
 	if(timestamp_trigger >SAMPLES_PRE_TRIGGER && timestamp_trigger+SAMPLES_POST_TRIGGER < ADC_BUFFER_LEN){
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+timestamp_trigger*2-SAMPLES_PRE_TRIGGER*2);//send pre trigger 180bytes
+		HAL_Delay(10);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+timestamp_trigger*2);
+		HAL_Delay(10);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+timestamp_trigger*2+180);
+		HAL_Delay(10);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+timestamp_trigger*2+180*2);
 		//HAL_Delay(10);
-		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+timestamp_trigger*2);//send first half of post trigger 180bytes
-		//HAL_Delay(10);
-		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+timestamp_trigger*2+(SAMPLES_POST_TRIGGER*2)/2);//send second half of post trigger 180bytes
+		//Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+timestamp_trigger*2+180*3);
+
 	}else if(timestamp_trigger < SAMPLES_PRE_TRIGGER){
 		printf("send else if \r\n");
 		uint16_t s = (ADC_BUFFER_LEN-1)-(SAMPLES_PRE_TRIGGER-timestamp_trigger);
 		uint16_t s_length = (SAMPLES_PRE_TRIGGER-timestamp_trigger)*2;
 		uint16_t e = timestamp_trigger+SAMPLES_POST_TRIGGER;
 		uint16_t e_length = (timestamp_trigger+SAMPLES_POST_TRIGGER)*2;
-
+		/*
 		printf("s: %i\r\n",s);
 		printf("slength: %i\r\n",s_length);
 		printf("e: %i\r\n",e);
 		printf("elengh: %i\r\n",e_length);
-
+		*/
+		if(s<0 || s>=ADC_BUFFER_LEN){
+			return;
+		}
+		if(e<0 || e>=ADC_BUFFER_LEN){
+			return;
+		}
 		memcpy(&data_buffer[0],(uint8_t *)myPointerToDMA+s*2,s_length);
 		memcpy(&data_buffer[0]+s_length,(uint8_t *)myPointerToDMA,e_length);
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p);
 
+
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180);
-		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+360);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180*2);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180*3);
+		//Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180*4);
 
 
 	}else if(timestamp_trigger+ SAMPLES_POST_TRIGGER>ADC_BUFFER_LEN){
@@ -271,24 +285,42 @@ void myTask(void){
 		uint16_t s_length = ((ADC_BUFFER_LEN-timestamp_trigger)+SAMPLES_PRE_TRIGGER)*2;
 		uint16_t e = timestamp_trigger + SAMPLES_POST_TRIGGER - ADC_BUFFER_LEN;
 		uint16_t e_length = e*2;
-		printf("s: %i\r\n",s);
+		/*
+		 * printf("s: %i\r\n",s);
 		printf("slength: %i\r\n",s_length);
 		printf("e: %i\r\n",e);
-		printf("elengh: %i\r\n",e_length);;
+		printf("elengh: %i\r\n",e_length);
+		*/
+		if(s<0 || s>=ADC_BUFFER_LEN){
+			return;
+		}
+		if(e<0 || e>=ADC_BUFFER_LEN){
+					return;
+		}
 		memcpy(&data_buffer[0],(uint8_t *)myPointerToDMA+s*2,s_length);
 		memcpy(&data_buffer[0]+s_length,(uint8_t *)myPointerToDMA,e_length);
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p);
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180);
-		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+360);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180*2);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180*3);
+		//Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180*4);
 	}
 
 }
-void callback_half_filled(void){
+void live_first_half(void){
 	//HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
 	if(myPointerToDMA!=NULL){
 		//memcpy(&UpdateCharData[0],myPointerToDMA,20);
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA);
 	}
+}
+void live_second_half(void){
+
+	if(myPointerToDMA!=NULL){
+		//memcpy(&UpdateCharData[0],myPointerToDMA,20);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA)+180;
+	}
+
 }
 /* USER CODE END PFP */
 

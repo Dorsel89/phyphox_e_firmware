@@ -53,13 +53,20 @@ extern volatile uint16_t timestamp_adc_stop;
 extern volatile uint16_t SAMPLES_PRE_TRIGGER;
 extern volatile uint16_t SAMPLES_POST_TRIGGER;
 
+extern float CALI_LOW_FLOAT[2];
+extern int CALI_LOW_INT[2];
+extern float CALI_HIGH_FLOAT[2];
+extern int CALI_HIGH_INT[2];
+extern uint8_t CALIBRATED;
+
 extern volatile uint16_t my_prescaler;
 
 extern dacx3202_t dacx3202;
 
 extern uint8_t adc_char_length;
 
-#define ADC_BUFFER_LEN 540
+//#define ADC_BUFFER_LEN 540
+#define ADC_BUFFER_LEN 4000
 
 /* USER CODE END ET */
 
@@ -80,7 +87,6 @@ void Error_Handler(void);
 extern void newConfigReceived();
 extern void dac_config_received();
 extern void adc_config_received();
-extern void setNewADC();
 extern void startADC();
 extern void set_dma_circular(uint8_t b);
 extern void set_dac(float val);

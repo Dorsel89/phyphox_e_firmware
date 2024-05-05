@@ -268,16 +268,11 @@ void APP_BLE_Init(void)
 #endif /* RADIO_ACTIVITY_EVENT != 0 */
   /* USER CODE BEGIN APP_BLE_Init_1 */
   UTIL_SEQ_RegTask(1<<CFG_TASK_MY_TASK, UTIL_SEQ_RFU, myTask);
-  UTIL_SEQ_SetTask(1 << CFG_TASK_MY_TASK, CFG_SCH_PRIO_0);
-
-  UTIL_SEQ_RegTask(1<<CFG_TASK_HALF_FILLED, UTIL_SEQ_RFU, callback_half_filled);
-  UTIL_SEQ_SetTask(1 << CFG_TASK_HALF_FILLED, CFG_SCH_PRIO_0);
-
+  UTIL_SEQ_RegTask(1<<CFG_TASK_HALF_FILLED, UTIL_SEQ_RFU, live_first_half);
+  UTIL_SEQ_RegTask(1<<CFG_TASK_FILLED, UTIL_SEQ_RFU, live_second_half);
   UTIL_SEQ_RegTask(1<<CFG_TASK_UPDATE_DAC, UTIL_SEQ_RFU, update_dac_settings);
-  UTIL_SEQ_SetTask(1 << CFG_TASK_UPDATE_DAC, CFG_SCH_PRIO_0);
-
   UTIL_SEQ_RegTask(1<<CFG_TASK_UPDATE_ADC, UTIL_SEQ_RFU, update_adc_settings);
-  UTIL_SEQ_SetTask(1 << CFG_TASK_UPDATE_ADC, CFG_SCH_PRIO_0);
+
   /* USER CODE END APP_BLE_Init_1 */
   SHCI_C2_Ble_Init_Cmd_Packet_t ble_init_cmd_packet =
   {
