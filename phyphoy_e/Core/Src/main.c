@@ -980,7 +980,9 @@ extern void new_adc_init(){
 
 	memcpy(&dac_voltage[1],&adc_config[6],4);
 	int dac_val_nc = ((dac_voltage[1]*1443/10.02)+2029);
-	int dac_val = CALI_DAC_INT[0]+(1023/CALI_DAC_INT[1])*dac_val_nc;
+	printf("dac_val_nc %i  CALI_DAC_INT 0 %i  CALI_DAC_INT 1 %i\r\n",dac_val_nc,CALI_DAC_INT[0],CALI_DAC_INT[1]);
+	int dac_val = CALI_DAC_INT[0]+(1023/(CALI_DAC_INT[1]-CALI_DAC_INT[0]))*dac_val_nc;
+	printf("dac value: %i\r\n",dac_val);
 	dacx3202_set_value(&dacx3202, DACX3202_DAC_1, dac_val);
 
 	//dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, my_dac_val);
