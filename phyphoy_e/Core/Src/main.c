@@ -155,13 +155,25 @@ extern volatile uint16_t SAMPLES_POST_TRIGGER = 270;
 extern volatile uint16_t my_prescaler = 30;//16417;
 
 
-extern float CALI_DAC_INT[2] = {0,0};
+extern uint16_t CALI_DAC_INT[2] = {0,0};
 
 extern float CALI_LOW_FLOAT[2] = {0.0,0.0};
-extern int CALI_LOW_INT[2] = {2029,2029};
-extern float CALI_HIGH_FLOAT[2] = {10.02,10.02};
-extern int CALI_HIGH_INT[2] = {3472,3472};
 extern uint8_t CALIBRATED = 1;
+
+//VALENTIN
+//extern int CALI_LOW_INT[2] = {1957,1957};
+//extern float CALI_HIGH_FLOAT[2] = {12.0,12.0};
+//extern int CALI_HIGH_INT[2] = {3874,3874};
+
+//JONA
+//extern int CALI_LOW_INT[2] = {2060,2060};
+//extern float CALI_HIGH_FLOAT[2] = {12.0,12.0};
+//extern int CALI_HIGH_INT[2] = {3795,3795};
+
+//Dominik
+extern int CALI_LOW_INT[2] = {2033,2033};
+extern float CALI_HIGH_FLOAT[2] = {7.63,7.63};
+extern int CALI_HIGH_INT[2] = {3134,3134};
 
 /* USER CODE END PV */
 
@@ -296,6 +308,8 @@ int main(void)
 	HAL_ADC_Stop(&hadc1);
 	printf("dac_calibration_valuie high %i\r\n",dac_calibration_value);
 	CALI_DAC_INT[1]=dac_calibration_value;
+
+	HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, 0);
 
 /*
   HAL_FLASH_Unlock();
@@ -971,6 +985,10 @@ extern void set_dma_circular(uint8_t b){
 	}
 }
 
+int16_t voltage_to_count(int c, float v){
+	return v*((CALI_HIGH_INT[c]-CALI_LOW_INT[c])/(CALI_HIGH_FLOAT[c]-CALI_LOW_FLOAT[c]))+CALI_LOW_INT[c];
+}
+
 extern void new_adc_init(){
 
 	HAL_ADC_Stop_DMA(&hadc1);
@@ -979,9 +997,10 @@ extern void new_adc_init(){
 
 
 	memcpy(&dac_voltage[1],&adc_config[6],4);
-	int dac_val_nc = ((dac_voltage[1]*1443/10.02)+2029);
+	//int dac_val_nc = ((dac_voltage[1]*1443/10.02)+2029);
+	int dac_val_nc = voltage_to_count(0,dac_voltage[1]);
 	printf("dac_val_nc %i  CALI_DAC_INT 0 %i  CALI_DAC_INT 1 %i\r\n",dac_val_nc,CALI_DAC_INT[0],CALI_DAC_INT[1]);
-	int dac_val = CALI_DAC_INT[0]+(1023/(CALI_DAC_INT[1]-CALI_DAC_INT[0]))*dac_val_nc;
+	uint16_t dac_val = CALI_DAC_INT[0]+(1023*dac_val_nc/(CALI_DAC_INT[1]-CALI_DAC_INT[0]));
 	printf("dac value: %i\r\n",dac_val);
 	dacx3202_set_value(&dacx3202, DACX3202_DAC_1, dac_val);
 

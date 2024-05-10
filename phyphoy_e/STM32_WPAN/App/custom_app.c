@@ -228,6 +228,18 @@ void update_dac_settings(void){
 		}
 	}
 }
+
+uint16_t transfer_to_e_calibration(uint16_t count, uint16_t c){
+	float measure_voltage = (count-CALI_LOW_INT[c])*(CALI_HIGH_FLOAT[c]-CALI_LOW_FLOAT[c])/(CALI_HIGH_INT[c]-CALI_LOW_INT[c])+CALI_LOW_FLOAT[c];
+	if(measure_voltage > 14.0){
+		measure_voltage = 14.0;
+	}else if(measure_voltage < -14){
+		measure_voltage = -14;
+	}
+	return 2048+measure_voltage*(4096/28);
+}
+
+
 void myTask(void){
 	/*
 	if(myPointerToDMA!=NULL){
@@ -236,9 +248,13 @@ void myTask(void){
 	}
 	*/
 	printf("lets send data\r\n");
-	uint8_t data_buffer[180*5];
+	uint16_t data_buffer[90*5];
 	uint8_t* data_buffer_p = &data_buffer[0];
 	if(timestamp_trigger >SAMPLES_PRE_TRIGGER && timestamp_trigger+SAMPLES_POST_TRIGGER < ADC_BUFFER_LEN){
+
+		memcpy(&data_buffer[0],(uint8_t *)myPointerToDMA+timestamp_trigger*2-SAMPLES_PRE_TRIGGER*2,180*5);
+		/*
+
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+timestamp_trigger*2-SAMPLES_PRE_TRIGGER*2);//send pre trigger 180bytes
 		HAL_Delay(10);
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+timestamp_trigger*2);
@@ -248,6 +264,16 @@ void myTask(void){
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+timestamp_trigger*2+180*2);
 		//HAL_Delay(10);
 		//Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA+timestamp_trigger*2+180*3);
+		*/
+
+		for(int i=0;i<90*5;i++){
+			data_buffer[i]=transfer_to_e_calibration(data_buffer[i],0);
+		}
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180*2);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180*3);
+
 
 	}else if(timestamp_trigger < SAMPLES_PRE_TRIGGER){
 		printf("send else if \r\n");
@@ -269,9 +295,11 @@ void myTask(void){
 		}
 		memcpy(&data_buffer[0],(uint8_t *)myPointerToDMA+s*2,s_length);
 		memcpy(&data_buffer[0]+s_length,(uint8_t *)myPointerToDMA,e_length);
+
+		for(int i=0;i<90*5;i++){
+			data_buffer[i]=transfer_to_e_calibration(data_buffer[i],0);
+		}
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p);
-
-
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180);
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180*2);
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180*3);
@@ -299,6 +327,9 @@ void myTask(void){
 		}
 		memcpy(&data_buffer[0],(uint8_t *)myPointerToDMA+s*2,s_length);
 		memcpy(&data_buffer[0]+s_length,(uint8_t *)myPointerToDMA,e_length);
+		for(int i=0;i<90*5;i++){
+			data_buffer[i]=transfer_to_e_calibration(data_buffer[i],0);
+		}
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p);
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180);
 		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)data_buffer_p+180*2);
@@ -310,15 +341,29 @@ void myTask(void){
 void live_first_half(void){
 	//HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
 	if(myPointerToDMA!=NULL){
-		//memcpy(&UpdateCharData[0],myPointerToDMA,20);
-		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA);
+		uint16_t data_buffer[90];
+		memcpy(&data_buffer[0],(uint8_t *)myPointerToDMA,180);
+		if(CALIBRATED){
+			for(int i=0;i<90;i++){
+				data_buffer[i]=transfer_to_e_calibration(data_buffer[i],0);
+			}
+			//Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA);
+			Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, &data_buffer[0]);
+		}
 	}
 }
 void live_second_half(void){
 
 	if(myPointerToDMA!=NULL){
-		//memcpy(&UpdateCharData[0],myPointerToDMA,20);
-		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA)+180;
+		uint16_t data_buffer[90];
+		memcpy(&data_buffer[0],(uint8_t *)myPointerToDMA+180,180);
+		if(CALIBRATED){
+			for(int i=0;i<90;i++){
+				data_buffer[i]=transfer_to_e_calibration(data_buffer[i],0);
+			}
+			Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, &data_buffer[0]);
+			//Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA)+180;
+		}
 	}
 
 }

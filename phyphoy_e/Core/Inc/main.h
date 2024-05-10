@@ -53,7 +53,7 @@ extern volatile uint16_t timestamp_adc_stop;
 extern volatile uint16_t SAMPLES_PRE_TRIGGER;
 extern volatile uint16_t SAMPLES_POST_TRIGGER;
 
-extern float CALI_DAC_INT[2];
+extern uint16_t CALI_DAC_INT[2];
 
 extern float CALI_LOW_FLOAT[2];
 extern int CALI_LOW_INT[2];
