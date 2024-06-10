@@ -39,6 +39,7 @@ typedef enum
   CUSTOM_STM_MYCHARNOTIFY,
   CUSTOM_STM_DAC_CHAR,
   CUSTOM_STM_ADC_CFG_CHAR,
+  CUSTOM_STM_CALIBRATION,
 } Custom_STM_Char_Opcode_t;
 
 typedef enum
@@ -57,6 +58,9 @@ typedef enum
   /* adc_cfg_char */
   CUSTOM_STM_ADC_CFG_CHAR_READ_EVT,
   CUSTOM_STM_ADC_CFG_CHAR_WRITE_EVT,
+  /* CALIBRATION */
+  CUSTOM_STM_CALIBRATION_READ_EVT,
+  CUSTOM_STM_CALIBRATION_WRITE_EVT,
   CUSTOM_STM_NOTIFICATION_COMPLETE_EVT,
 
   CUSTOM_STM_BOOT_REQUEST_EVT
@@ -86,6 +90,7 @@ extern uint8_t SizeChannelone;
 extern uint8_t SizeMycharnotify;
 extern uint8_t SizeDac_Char;
 extern uint8_t SizeAdc_Cfg_Char;
+extern uint8_t SizeCalibration;
 
 /* USER CODE BEGIN EC */
 

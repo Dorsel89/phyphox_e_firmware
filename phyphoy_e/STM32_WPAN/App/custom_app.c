@@ -113,7 +113,63 @@ extern void dac_config_received(){
 extern void adc_config_received(){
 	UTIL_SEQ_SetTask(1 << CFG_TASK_UPDATE_ADC, CFG_SCH_PRIO_0);
 }
+extern void hw_config_received(){
+	//git new hw calibration
+	printf("hw config: [");
+	for(int i=0;i<20;i++){
+		printf("%i,",hw_config[i]);
+	}
+	printf("]\r\n");
+	//channel, low/high, int, voltage
 
+	if(hw_config[0]==254){
+		SERIALNUMBER[0]=hw_config[1];
+		printf("new serialnumber: %i \r\n",SERIALNUMBER[0]);
+		return;
+	}
+	if(hw_config[0]==255){
+
+			printf("store calibration data to flash!\r\n");
+			update_flash();
+			return;
+		}
+	if(hw_config[0]==252){
+		//calibrate dac
+		printf("store calibration data for dac!\r\n");
+		uint16_t val_buffer[1]={0};
+		memcpy(&val_buffer[0],&hw_config[0]+2,2);
+		printf("low/high: %i, measuredValue; %i\r\n",hw_config[1],val_buffer[0]);
+
+		float val_f = (val_buffer[0])*28/4096 -14.0;
+		printf("val_f: %f\r\n",val_f);
+		CALI_DAC_INT[2+hw_config[1]]= val_buffer[0];
+		return;
+	}
+	if(hw_config[0]==253){
+		CALIBRATED=hw_config[1];
+		printf("is calibrated \r\n");
+		printf("CALI_LOW_INT: %i \r\n",CALI_LOW_INT[0]);
+		printf("CALI_HIGH_INT: %i \r\n",CALI_HIGH_INT[0]);
+
+		return;
+	}
+	uint16_t int_val[1];
+	float float_val[1];
+	memcpy(&int_val[0],&hw_config[0]+2,2);
+	memcpy(&float_val[0],&hw_config[0]+4,4);
+	printf("int: %i, float: %f\r\n",int_val[0],float_val[0]);
+
+	if(hw_config[1]==0){
+		CALI_LOW_INT[hw_config[0]] = int_val[0];
+		CALI_LOW_FLOAT[hw_config[0]] = float_val[0];
+	}else if(hw_config[1]==1){
+		CALI_HIGH_INT[hw_config[0]] = int_val[0];
+		CALI_HIGH_FLOAT[hw_config[0]] = float_val[0];
+	}
+
+
+
+}
 void update_adc_settings(void){
 
 	//adc_char_length
@@ -219,19 +275,54 @@ void update_dac_settings(void){
 		dac_enable = p_dac_config;
 		dac_mode = p_dac_config +1;
 		dac_value = p_dac_config +2;
-
-		if(*dac_enable == 1 && *dac_mode == 1){
+		if(*dac_enable == 254){
+			//set dac to 0 for calibration
+			dacx3202_set_value(&dacx3202, DACX3202_DAC_0, 1023);
+			return;
+		}
+		if(*dac_enable == 255){
+					//set dac to 0 for calibration
+					dacx3202_set_value(&dacx3202, DACX3202_DAC_0, 0);
+					return;
+				}
+		/*if(*dac_enable == 1 && *dac_mode == 1){
 			float target[1];
 			memcpy(&target[0],dac_value,4);
 			float my_dac_val = (9.9-target[0])*2.9/(9.9-(-8.18));
 			dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, my_dac_val);
 		}
+		*/
+		if(*dac_enable == 1 && *dac_mode == 1){
+			float target[1];
+			memcpy(&target[0],dac_value,4);
+			printf("target float: %f\r\n",target[0]);
+			float m = (CALI_HIGH_INT[0]-CALI_LOW_INT[0])/CALI_HIGH_FLOAT[0];
+			float b = CALI_LOW_INT[0];
+
+			float dac_low = (CALI_DAC_INT[2]-b)/m;
+			float dac_high = (CALI_DAC_INT[3]-b)/m;
+
+			uint16_t dac_val_calibrated = (target[0]-dac_low)*(1023)/(dac_high-dac_low);
+			printf("set dac to val: %i\r\n",dac_val_calibrated);
+			dacx3202_set_value(&dacx3202, DACX3202_DAC_0, dac_val_calibrated);
+		}
+
+
 	}
 }
 
+
+
 uint16_t transfer_to_e_calibration(uint16_t count, uint16_t c){
-	float measure_voltage = (count-CALI_LOW_INT[c])*(CALI_HIGH_FLOAT[c]-CALI_LOW_FLOAT[c])/(CALI_HIGH_INT[c]-CALI_LOW_INT[c])+CALI_LOW_FLOAT[c];
-	if(measure_voltage > 14.0){
+	//float measure_voltage = (count-CALI_LOW_INT[c])*(CALI_HIGH_FLOAT[c]-CALI_LOW_FLOAT[c])/(CALI_HIGH_INT[c]-CALI_LOW_INT[c])+CALI_LOW_FLOAT[c];
+
+	float m = (CALI_HIGH_INT[c]-CALI_LOW_INT[c])/CALI_HIGH_FLOAT[c];
+	float b = CALI_LOW_INT[c];
+	float measure_voltage = (count-b)/m;
+	//float m = 2048.0/(CALI_HIGH_INT[c]-CALI_LOW_INT[c]);
+	//float b = CALI_LOW_INT[c]-2048;
+	//float measure_voltage = m*count+b;
+	if(measure_voltage > 14){
 		measure_voltage = 14.0;
 	}else if(measure_voltage < -14){
 		measure_voltage = -14;
@@ -340,16 +431,20 @@ void myTask(void){
 }
 void live_first_half(void){
 	//HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
+	//printf("half filled cb \r\n");
 	if(myPointerToDMA!=NULL){
 		uint16_t data_buffer[90];
 		memcpy(&data_buffer[0],(uint8_t *)myPointerToDMA,180);
+		printf("data_buffer[0]: %i\r\n",data_buffer[0]);
 		if(CALIBRATED){
+
+
 			for(int i=0;i<90;i++){
 				data_buffer[i]=transfer_to_e_calibration(data_buffer[i],0);
 			}
 			//Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA);
-			Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, &data_buffer[0]);
 		}
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, &data_buffer[0]);
 	}
 }
 void live_second_half(void){
@@ -361,9 +456,9 @@ void live_second_half(void){
 			for(int i=0;i<90;i++){
 				data_buffer[i]=transfer_to_e_calibration(data_buffer[i],0);
 			}
-			Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, &data_buffer[0]);
 			//Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA)+180;
 		}
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, &data_buffer[0]);
 	}
 
 }
@@ -442,6 +537,18 @@ void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotificatio
       /* USER CODE BEGIN CUSTOM_STM_ADC_CFG_CHAR_WRITE_EVT */
 
       /* USER CODE END CUSTOM_STM_ADC_CFG_CHAR_WRITE_EVT */
+      break;
+
+    case CUSTOM_STM_CALIBRATION_READ_EVT:
+      /* USER CODE BEGIN CUSTOM_STM_CALIBRATION_READ_EVT */
+
+      /* USER CODE END CUSTOM_STM_CALIBRATION_READ_EVT */
+      break;
+
+    case CUSTOM_STM_CALIBRATION_WRITE_EVT:
+      /* USER CODE BEGIN CUSTOM_STM_CALIBRATION_WRITE_EVT */
+
+      /* USER CODE END CUSTOM_STM_CALIBRATION_WRITE_EVT */
       break;
 
     case CUSTOM_STM_NOTIFICATION_COMPLETE_EVT:

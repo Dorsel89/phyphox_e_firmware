@@ -225,10 +225,10 @@ uint8_t index_con_int, mutex;
 /**
  * Advertising Data
  */
-uint8_t a_AdvData[14] =
+uint8_t a_AdvData[18] =
 {
   2, AD_TYPE_TX_POWER_LEVEL, 0 /* -0.15dBm */, /* Transmission Power */
-  10, AD_TYPE_COMPLETE_LOCAL_NAME, 'p', 'h', 'y', 'p', 'h', 'o', 'x', ':', 'e',  /* Complete name */
+  14, AD_TYPE_COMPLETE_LOCAL_NAME, 'p', 'h', 'y', 'p', 'h', 'o', 'x', ':', 'e', ' ', '0', '0', '0',  /* Complete name */
 
 };
 
@@ -1029,6 +1029,21 @@ static void Adv_Request(APP_BLE_ConnStatus_t NewStatus)
   }
 
 /* USER CODE BEGIN Adv_Request_1*/
+
+if(SERIALNUMBER[0]>0){
+
+	static char stringbuff[10];
+	itoa(SERIALNUMBER[0],stringbuff,10);
+
+	printf ("decimal: %c\n",stringbuff[0]);
+	printf ("decimal: %c\n",stringbuff[1]);
+	printf ("decimal: %c\n",stringbuff[2]);
+
+	a_AdvData[15] = stringbuff[0];
+	a_AdvData[16] = stringbuff[1];
+	a_AdvData[17] = stringbuff[2];
+
+}
 
 /* USER CODE END Adv_Request_1*/
 

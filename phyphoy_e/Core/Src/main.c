@@ -122,6 +122,12 @@ TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
+
+#define FLASH_LAYOUT_IS_HOMOGENEOUS (1)
+#define FLASH_LAYOUT_START_ADDR     (FLASH_BASE)
+#define FLASH_LAYOUT_SECTOR_SIZE    (FLASH_PAGE_SIZE)
+#define FLASH_LAYOUT_NUM_SECTORS    (512)
+
 uint16_t adc_buf[ADC_BUFFER_LEN];
 
 float dac_voltage[2]={0};
@@ -155,10 +161,13 @@ extern volatile uint16_t SAMPLES_POST_TRIGGER = 270;
 extern volatile uint16_t my_prescaler = 30;//16417;
 
 
-extern uint16_t CALI_DAC_INT[2] = {0,0};
+extern uint16_t CALI_DAC_INT[4] = {0,0};
+extern uint16_t CALI_DAC_INT_OUT[2] = {0,0};
 
+extern float CALI_DAC_FLOAT[2] = {0,0};
+extern uint16_t SERIALNUMBER[1] = {0};
 extern float CALI_LOW_FLOAT[2] = {0.0,0.0};
-extern uint8_t CALIBRATED = 1;
+extern volatile uint8_t CALIBRATED = 0;
 
 //VALENTIN
 //extern int CALI_LOW_INT[2] = {1957,1957};
@@ -171,9 +180,9 @@ extern uint8_t CALIBRATED = 1;
 //extern int CALI_HIGH_INT[2] = {3795,3795};
 
 //Dominik
-extern int CALI_LOW_INT[2] = {2033,2033};
+extern uint16_t CALI_LOW_INT[2] = {3,4};
 extern float CALI_HIGH_FLOAT[2] = {7.63,7.63};
-extern int CALI_HIGH_INT[2] = {3134,3134};
+extern uint16_t CALI_HIGH_INT[2] = {5,6};
 
 /* USER CODE END PV */
 
@@ -311,18 +320,9 @@ int main(void)
 
 	HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, 0);
 
-/*
-  HAL_FLASH_Unlock();
-  uint64_t test =3;
-  HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, flash_address, test);
-  HAL_FLASH_Lock();
+	//update_flash();
+	read_flash();
 
-
-
-
-
-
-  */
   /* USER CODE END 2 */
 
   /* Init code for STM32_WPAN */
@@ -989,6 +989,80 @@ int16_t voltage_to_count(int c, float v){
 	return v*((CALI_HIGH_INT[c]-CALI_LOW_INT[c])/(CALI_HIGH_FLOAT[c]-CALI_LOW_FLOAT[c]))+CALI_LOW_INT[c];
 }
 
+static uint32_t get_page(uint32_t addr) {
+    return (addr - FLASH_LAYOUT_START_ADDR) / FLASH_LAYOUT_SECTOR_SIZE;
+}
+
+extern void update_flash(){
+	//TODO
+	printf("updating flash!\r\n");
+	HAL_FLASH_Unlock();
+
+	while (LL_FLASH_IsActiveFlag_OperationSuspended()) {
+	}
+
+
+	const int n_64bit = 8;
+	uint64_t my_64bit_words[8]={0};
+
+	memcpy(&my_64bit_words[0],&SERIALNUMBER[0],2);//160
+	memcpy(&my_64bit_words[1],&CALI_DAC_INT[0],8);//0,0
+
+	memcpy(&my_64bit_words[2],&CALI_LOW_FLOAT[0],4);//0
+	memcpy(&my_64bit_words[3],&CALI_LOW_FLOAT[1],4);//0
+
+	memcpy(&my_64bit_words[4],&CALI_LOW_INT[0],4);//3,4
+
+	memcpy(&my_64bit_words[5],&CALI_HIGH_FLOAT[0],4);//7.63,7.63
+	memcpy(&my_64bit_words[6],&CALI_HIGH_FLOAT[1],4);
+
+	memcpy(&my_64bit_words[7],&CALI_HIGH_INT[0],4);//5,6
+
+
+
+
+
+
+	static FLASH_EraseInitTypeDef EraseInitStruct;
+	EraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES;
+	EraseInitStruct.Page = get_page(flash_address);
+	EraseInitStruct.NbPages = 1;
+	uint32_t PageError;
+	volatile HAL_StatusTypeDef status_test;
+	status_test = HAL_FLASHEx_Erase(&EraseInitStruct, &PageError);
+
+
+	for(int i=0;i<n_64bit;i++){
+		HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, flash_address+i*8, my_64bit_words[i]);
+		while (__HAL_FLASH_GET_FLAG(FLASH_FLAG_CFGBSY)) {
+			    }
+	}
+
+	HAL_FLASH_Lock();
+
+}
+extern void read_flash(){
+	//HAL_FLASH_Unlock();
+	memcpy(&SERIALNUMBER[0],flash_address,2);
+	memcpy(&CALI_DAC_INT[2],flash_address+12,4);
+	memcpy(&CALI_LOW_FLOAT[0],flash_address+16,4);
+	memcpy(&CALI_LOW_FLOAT[1],flash_address+24,4);
+	memcpy(&CALI_LOW_INT[0],flash_address+32,4);
+	memcpy(&CALI_HIGH_FLOAT[0],flash_address+40,4);
+	memcpy(&CALI_HIGH_FLOAT[1],flash_address+48,4);
+	memcpy(&CALI_HIGH_INT[0],flash_address+56,4);
+
+	printf("read CALI_DAC_INT: %i - %i\r\n",CALI_DAC_INT[0],CALI_DAC_INT[1]);
+	printf("read CALI_LOW_FLOAT: %f - %f\r\n",CALI_LOW_FLOAT[0],CALI_LOW_FLOAT[1]);
+	printf("read CALI_LOW_INT: %i - %i\r\n",CALI_LOW_INT[0],CALI_LOW_INT[1]);
+	printf("read CALI_HIGH_FLOAT: %f - %f\r\n",CALI_HIGH_FLOAT[0],CALI_HIGH_FLOAT[1]);
+	printf("read CALI_HIGH_INT: %i - %i\r\n",CALI_HIGH_INT[0],CALI_HIGH_INT[1]);
+
+	if(SERIALNUMBER[0]!=0){
+		CALIBRATED=1;
+	}
+	//HAL_FLASH_Lock();
+}
 extern void new_adc_init(){
 
 	HAL_ADC_Stop_DMA(&hadc1);
@@ -1004,7 +1078,8 @@ extern void new_adc_init(){
 	printf("dac value: %i\r\n",dac_val);
 	dacx3202_set_value(&dacx3202, DACX3202_DAC_1, dac_val);
 
-	//dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, my_dac_val);
+
+//dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, my_dac_val);
 
 	//disable dac for now!
 	//set_dac(my_dac_val);
@@ -1063,14 +1138,14 @@ extern void new_adc_init(){
 	//hadc1.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
 
 	if(*adc_oversampling==0){
-		hadc1.Init.OversamplingMode = DISABLE;
 		hadc1.Init.Oversampling.Ratio = OVERSAMPLING[*adc_oversampling];
+		hadc1.Init.OversamplingMode = DISABLE;
 	}else{
 		hadc1.Init.OversamplingMode = ENABLE;
 		hadc1.Init.Oversampling.Ratio = OVERSAMPLING[*adc_oversampling];
 		hadc1.Init.Oversampling.RightBitShift = BITSHIFT[*adc_oversampling];
 		hadc1.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
-		hadc1.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
+		//hadc1.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
 	}
 
 
@@ -1156,7 +1231,10 @@ void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef *htim)
 
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc){
 	//timer_val = __HAL_TIM_GET_COUNTER(&htim17);
-	//UTIL_SEQ_SetTask(1 << CFG_TASK_HALF_FILLED, CFG_SCH_PRIO_0);
+	if(*adc_mode == 0){
+		UTIL_SEQ_SetTask(1 << CFG_TASK_HALF_FILLED, CFG_SCH_PRIO_0);
+	}
+
 }
 
 
@@ -1179,7 +1257,7 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 }
 //Callback when buffer filled
 
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc1){
 
 	/*
 	reference_counts = __HAL_TIM_GET_COUNTER(&htim1);
