@@ -1057,8 +1057,11 @@ extern void read_flash(){
 	printf("read CALI_LOW_INT: %i - %i\r\n",CALI_LOW_INT[0],CALI_LOW_INT[1]);
 	printf("read CALI_HIGH_FLOAT: %f - %f\r\n",CALI_HIGH_FLOAT[0],CALI_HIGH_FLOAT[1]);
 	printf("read CALI_HIGH_INT: %i - %i\r\n",CALI_HIGH_INT[0],CALI_HIGH_INT[1]);
+	if(SERIALNUMBER[0]>=999){
+		SERIALNUMBER[0]=0;
+	}
 
-	if(SERIALNUMBER[0]!=0){
+	if(SERIALNUMBER[0]>0 && SERIALNUMBER[0]<999){
 		CALIBRATED=1;
 	}
 	//HAL_FLASH_Lock();
