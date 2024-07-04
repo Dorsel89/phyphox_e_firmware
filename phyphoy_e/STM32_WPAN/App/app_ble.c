@@ -225,10 +225,10 @@ uint8_t index_con_int, mutex;
 /**
  * Advertising Data
  */
-uint8_t a_AdvData[14] =
+uint8_t a_AdvData[18] =
 {
   2, AD_TYPE_TX_POWER_LEVEL, 0 /* -0.15dBm */, /* Transmission Power */
-  10, AD_TYPE_COMPLETE_LOCAL_NAME, 'p', 'h', 'y', 'p', 'h', 'o', 'x', ':', 'e',  /* Complete name */
+  14, AD_TYPE_COMPLETE_LOCAL_NAME, 'p', 'h', 'y', 'p', 'h', 'o', 'x', ':', 'e', ' ', '0', '0', '0',  /* Complete name */
 
 };
 
@@ -268,18 +268,13 @@ void APP_BLE_Init(void)
 #endif /* RADIO_ACTIVITY_EVENT != 0 */
   /* USER CODE BEGIN APP_BLE_Init_1 */
   UTIL_SEQ_RegTask(1<<CFG_TASK_MY_TASK, UTIL_SEQ_RFU, myTask);
-  UTIL_SEQ_SetTask(1 << CFG_TASK_MY_TASK, CFG_SCH_PRIO_0);
 
   UTIL_SEQ_RegTask(1<<CFG_TASK_HALF_FILLED, UTIL_SEQ_RFU, live_first_half);
-  UTIL_SEQ_SetTask(1 << CFG_TASK_HALF_FILLED, CFG_SCH_PRIO_0);
   UTIL_SEQ_RegTask(1<<CFG_TASK_FILLED, UTIL_SEQ_RFU, live_second_half);
-  UTIL_SEQ_SetTask(1 << CFG_TASK_FILLED, CFG_SCH_PRIO_0);
 
   UTIL_SEQ_RegTask(1<<CFG_TASK_UPDATE_DAC, UTIL_SEQ_RFU, update_dac_settings);
-  UTIL_SEQ_SetTask(1 << CFG_TASK_UPDATE_DAC, CFG_SCH_PRIO_0);
-
   UTIL_SEQ_RegTask(1<<CFG_TASK_UPDATE_ADC, UTIL_SEQ_RFU, update_adc_settings);
-  UTIL_SEQ_SetTask(1 << CFG_TASK_UPDATE_ADC, CFG_SCH_PRIO_0);
+
   /* USER CODE END APP_BLE_Init_1 */
   SHCI_C2_Ble_Init_Cmd_Packet_t ble_init_cmd_packet =
   {
@@ -1036,6 +1031,21 @@ static void Adv_Request(APP_BLE_ConnStatus_t NewStatus)
   }
 
 /* USER CODE BEGIN Adv_Request_1*/
+
+if(SERIALNUMBER[0]>0){
+
+	static char stringbuff[10];
+	itoa(SERIALNUMBER[0],stringbuff,10);
+
+	printf ("decimal: %c\n",stringbuff[0]);
+	printf ("decimal: %c\n",stringbuff[1]);
+	printf ("decimal: %c\n",stringbuff[2]);
+
+	a_AdvData[15] = stringbuff[0];
+	a_AdvData[16] = stringbuff[1];
+	a_AdvData[17] = stringbuff[2];
+
+}
 
 /* USER CODE END Adv_Request_1*/
 

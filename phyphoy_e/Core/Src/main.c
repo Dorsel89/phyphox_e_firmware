@@ -122,19 +122,23 @@ TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
-uint32_t adc_buf[ADC_BUFFER_LEN];
-bool fillingFirstHalf;
 
-uint8_t* adc_mode;
-uint8_t* adc_sampletime;
-uint8_t* adc_clock_prescaler;
-uint8_t* adc_oversampling;
-uint8_t* adc_routing;
-uint8_t* threshold;
-uint8_t* adc_edge;
+#define FLASH_LAYOUT_IS_HOMOGENEOUS (1)
+#define FLASH_LAYOUT_START_ADDR     (FLASH_BASE)
+#define FLASH_LAYOUT_SECTOR_SIZE    (FLASH_PAGE_SIZE)
+#define FLASH_LAYOUT_NUM_SECTORS    (512)
 
-bool filled = false;
 
+uint16_t adc_buf[ADC_BUFFER_LEN];
+
+float dac_voltage[2]={0};
+
+uint8_t* adc_mode = &adc_config[0];
+uint8_t* adc_routing = &adc_config[1];
+uint8_t* adc_sampletime = &adc_config[2];
+uint8_t* adc_clock_prescaler = &adc_config[3];
+uint8_t* adc_oversampling = &adc_config[4];
+uint8_t* adc_edge = &adc_config[5];
 
 extern uint8_t ble_flag;
 extern uint8_t ble_buffer[1];
@@ -143,18 +147,43 @@ extern uint8_t adc_char_length = 180;
 extern volatile uint8_t activate_trigger = 0;
 
 volatile int Is_First_Captured = 0;
+volatile int first_adc_loop_finished = 0;
 
 volatile uint32_t IC_Val1 = 0;
 volatile uint16_t timer_val;
 
-volatile uint32_t reference_counts;
+volatile uint32_t reference_counts = 0;
 
 extern volatile uint16_t timestamp_trigger = 0;
 extern volatile uint16_t timestamp_adc_stop = 0;
 
 extern volatile uint16_t SAMPLES_PRE_TRIGGER = 90;
-extern volatile uint16_t SAMPLES_POST_TRIGGER = 180;
-extern volatile uint16_t my_prescaler = 6340;//16417;
+extern volatile uint16_t SAMPLES_POST_TRIGGER = 270;
+extern volatile uint16_t my_prescaler = 30;//16417;
+
+
+extern uint16_t CALI_DAC_INT[4] = {0,0};
+extern uint16_t CALI_DAC_INT_OUT[2] = {0,0};
+
+extern float CALI_DAC_FLOAT[2] = {0,0};
+extern uint16_t SERIALNUMBER[1] = {0};
+extern float CALI_LOW_FLOAT[2] = {0.0,0.0};
+extern volatile uint8_t CALIBRATED = 0;
+
+//VALENTIN
+//extern int CALI_LOW_INT[2] = {1957,1957};
+//extern float CALI_HIGH_FLOAT[2] = {12.0,12.0};
+//extern int CALI_HIGH_INT[2] = {3874,3874};
+
+//JONA
+//extern int CALI_LOW_INT[2] = {2060,2060};
+//extern float CALI_HIGH_FLOAT[2] = {12.0,12.0};
+//extern int CALI_HIGH_INT[2] = {3795,3795};
+
+//Dominik
+extern uint16_t CALI_LOW_INT[2] = {3,4};
+extern float CALI_HIGH_FLOAT[2] = {7.63,7.63};
+extern uint16_t CALI_HIGH_INT[2] = {5,6};
 
 extern float CALI_LOW_FLOAT[2] = {0.0,0.0};
 extern int CALI_LOW_INT[2] = {2029,2029};
@@ -252,8 +281,6 @@ int main(void)
   MX_RF_Init();
   /* USER CODE BEGIN 2 */
   adc_buffer_p = &adc_buf[0];
-  fillingFirstHalf = true;
-
 
 //HAL_TIM_OnePulse_Start_IT(&htim1, TIM_CHANNEL_1);
 
@@ -265,31 +292,44 @@ int main(void)
 
   HAL_COMP_Start(&hcomp1);
 
+
   dacx3202_init(&dacx3202);
   dacx3202_power_up(&dacx3202, DACX3202_DAC_0);
   dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, 1.59);
   dacx3202_power_up(&dacx3202, DACX3202_DAC_1);
-  dacx3202_set_voltage(&dacx3202, DACX3202_DAC_1, 2.2);
-  //dacx3202_set_value(&dacx3202, DACX3202_DAC_0, 1023);
-  //dacx3202_set_voltage(&dacx3202, DACX3202_DAC_1, threshold(2.0));
+  //dacx3202_set_voltage(&dacx3202, DACX3202_DAC_1, 2.2);
+  dacx3202_set_value(&dacx3202, DACX3202_DAC_1, 0);
+
   myPointerToDMA = &adc_buf[0];
   if(HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED)== HAL_OK){
 	  //HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
   }
   //HAL_ADC_Start_IT(&hadc1);
-  my_prescaler = 16417;
 
   //start_circular_adc();
 
 
-  //HAL_DMA_Start(hdma, SrcAddress, DstAddress, DataLength)
+  //HAL_ADC_Start_DMA_(&hadc1, (uint32_t*)adc_buf, ADC_BUFFER_LEN);
+  HAL_ADC_Start(&hadc1);
+  HAL_ADC_PollForConversion(&hadc1, 1000);
+  uint16_t dac_calibration_value = HAL_ADC_GetValue(&hadc1);
+  HAL_ADC_Stop(&hadc1);
+  printf("dac_calibration_valuie low%i\r\n",dac_calibration_value);
+  CALI_DAC_INT[0]=dac_calibration_value;
 
-/*
-  HAL_FLASH_Unlock();
-  uint64_t test =3;
-  HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, flash_address, test);
-  HAL_FLASH_Lock();
-  */
+  dacx3202_set_value(&dacx3202, DACX3202_DAC_1, 1023);
+  HAL_ADC_Start(&hadc1);
+	HAL_ADC_PollForConversion(&hadc1, 1000);
+	dac_calibration_value = HAL_ADC_GetValue(&hadc1);
+	HAL_ADC_Stop(&hadc1);
+	printf("dac_calibration_valuie high %i\r\n",dac_calibration_value);
+	CALI_DAC_INT[1]=dac_calibration_value;
+
+	HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, 0);
+
+	//update_flash();
+	read_flash();
+
   /* USER CODE END 2 */
 
   /* Init code for STM32_WPAN */
@@ -421,11 +461,11 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
-  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.NbrOfConversion = 1;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T1_TRGO;
-  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
   hadc1.Init.OversamplingMode = ENABLE;
@@ -440,9 +480,9 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_14;
+  sConfig.Channel = ADC_CHANNEL_5;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_247CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
@@ -479,7 +519,7 @@ static void MX_COMP1_Init(void)
   hcomp1.Init.BlankingSrce = COMP_BLANKINGSRC_NONE;
   hcomp1.Init.Mode = COMP_POWERMODE_HIGHSPEED;
   hcomp1.Init.WindowMode = COMP_WINDOWMODE_DISABLE;
-  hcomp1.Init.TriggerMode = COMP_TRIGGERMODE_IT_RISING;
+  hcomp1.Init.TriggerMode = COMP_TRIGGERMODE_NONE;
   if (HAL_COMP_Init(&hcomp1) != HAL_OK)
   {
     Error_Handler();
@@ -648,12 +688,12 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 41002;
+  htim1.Init.Prescaler = 30;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 1000;
+  htim1.Init.Period = 4000+500;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
-  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
   {
     Error_Handler();
@@ -674,10 +714,10 @@ static void MX_TIM1_Init(void)
   {
     Error_Handler();
   }
-  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_FALLING;
   sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
   sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
-  sConfigIC.ICFilter = 0;
+  sConfigIC.ICFilter = 5;
   if (HAL_TIM_IC_ConfigChannel(&htim1, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
@@ -711,9 +751,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 41002;
+  htim2.Init.Prescaler = 30;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 230;
+  htim2.Init.Period = 10;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -868,18 +908,24 @@ static uint8_t read_i2c(uint8_t addr, uint16_t reg, uint8_t *data_r, uint16_t le
 
 }
 
-
 extern void change_edge(uint8_t e){
-	HAL_COMP_Stop(&hcomp1);
+	TIM_IC_InitTypeDef sConfigIC = {0};
+
 	if(e==0){
-		hcomp1.Init.TriggerMode = COMP_TRIGGERMODE_IT_FALLING;
+		sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_FALLING;
 	}else if(e==1){
-		hcomp1.Init.TriggerMode = COMP_TRIGGERMODE_IT_RISING;
+		sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
 	}else if(e==2){
-		hcomp1.Init.TriggerMode = COMP_TRIGGERMODE_IT_RISING_FALLING;
+		sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_BOTHEDGE;
 	}
-	HAL_COMP_Init(&hcomp1);
-	HAL_COMP_Start(&hcomp1);
+
+	sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+	sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+	sConfigIC.ICFilter = 10;
+	if (HAL_TIM_IC_ConfigChannel(&htim1, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
+	{
+	Error_Handler();
+	}
 }
 extern void set_dac(float val){
 	  dacx3202_set_voltage(&dacx3202, DACX3202_DAC_1, val);
@@ -921,6 +967,10 @@ extern void start_circular_adc(){
 	HAL_GPIO_WritePin(LED_B_GPIO_Port, LED_B_Pin, 0);
 	//starting everything
 	Is_First_Captured = 0;
+	first_adc_loop_finished = 0;
+	printf("activate trigger! \r\n");
+	//HAL_TIM_Base_Start_IT(&htim2);
+	//htim2.Instance->CNT = 0;
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUFFER_LEN);
 	HAL_TIM_OC_Start_IT(&htim1, TIM_CHANNEL_1);
 
@@ -942,11 +992,98 @@ extern void set_dma_circular(uint8_t b){
 	}
 }
 
+int16_t voltage_to_count(int c, float v){
+	return v*((CALI_HIGH_INT[c]-CALI_LOW_INT[c])/(CALI_HIGH_FLOAT[c]-CALI_LOW_FLOAT[c]))+CALI_LOW_INT[c];
+}
+
+static uint32_t get_page(uint32_t addr) {
+    return (addr - FLASH_LAYOUT_START_ADDR) / FLASH_LAYOUT_SECTOR_SIZE;
+}
+
+extern void update_flash(){
+	//TODO
+	printf("updating flash!\r\n");
+	HAL_FLASH_Unlock();
+
+	while (LL_FLASH_IsActiveFlag_OperationSuspended()) {
+	}
+
+
+	const int n_64bit = 8;
+	uint64_t my_64bit_words[8]={0};
+
+	memcpy(&my_64bit_words[0],&SERIALNUMBER[0],2);//160
+	memcpy(&my_64bit_words[1],&CALI_DAC_INT[0],8);//0,0
+
+	memcpy(&my_64bit_words[2],&CALI_LOW_FLOAT[0],4);//0
+	memcpy(&my_64bit_words[3],&CALI_LOW_FLOAT[1],4);//0
+
+	memcpy(&my_64bit_words[4],&CALI_LOW_INT[0],4);//3,4
+
+	memcpy(&my_64bit_words[5],&CALI_HIGH_FLOAT[0],4);//7.63,7.63
+	memcpy(&my_64bit_words[6],&CALI_HIGH_FLOAT[1],4);
+
+	memcpy(&my_64bit_words[7],&CALI_HIGH_INT[0],4);//5,6
+
+
+
+
+
+
+	static FLASH_EraseInitTypeDef EraseInitStruct;
+	EraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES;
+	EraseInitStruct.Page = get_page(flash_address);
+	EraseInitStruct.NbPages = 1;
+	uint32_t PageError;
+	volatile HAL_StatusTypeDef status_test;
+	status_test = HAL_FLASHEx_Erase(&EraseInitStruct, &PageError);
+
+
+	for(int i=0;i<n_64bit;i++){
+		HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, flash_address+i*8, my_64bit_words[i]);
+		while (__HAL_FLASH_GET_FLAG(FLASH_FLAG_CFGBSY)) {
+			    }
+	}
+
+	HAL_FLASH_Lock();
+
+}
+extern void read_flash(){
+	//HAL_FLASH_Unlock();
+	memcpy(&SERIALNUMBER[0],flash_address,2);
+	memcpy(&CALI_DAC_INT[2],flash_address+12,4);
+	memcpy(&CALI_LOW_FLOAT[0],flash_address+16,4);
+	memcpy(&CALI_LOW_FLOAT[1],flash_address+24,4);
+	memcpy(&CALI_LOW_INT[0],flash_address+32,4);
+	memcpy(&CALI_HIGH_FLOAT[0],flash_address+40,4);
+	memcpy(&CALI_HIGH_FLOAT[1],flash_address+48,4);
+	memcpy(&CALI_HIGH_INT[0],flash_address+56,4);
+
+	printf("read CALI_DAC_INT: %i - %i\r\n",CALI_DAC_INT[0],CALI_DAC_INT[1]);
+	printf("read CALI_LOW_FLOAT: %f - %f\r\n",CALI_LOW_FLOAT[0],CALI_LOW_FLOAT[1]);
+	printf("read CALI_LOW_INT: %i - %i\r\n",CALI_LOW_INT[0],CALI_LOW_INT[1]);
+	printf("read CALI_HIGH_FLOAT: %f - %f\r\n",CALI_HIGH_FLOAT[0],CALI_HIGH_FLOAT[1]);
+	printf("read CALI_HIGH_INT: %i - %i\r\n",CALI_HIGH_INT[0],CALI_HIGH_INT[1]);
+	if(SERIALNUMBER[0]>=999){
+		SERIALNUMBER[0]=0;
+	}
+
+	if(SERIALNUMBER[0]>0 && SERIALNUMBER[0]<999){
+		CALIBRATED=1;
+	}
+	//HAL_FLASH_Lock();
+}
 extern void new_adc_init(){
 
 	HAL_ADC_Stop_DMA(&hadc1);
 	HAL_ADC_DeInit(&hadc1);
 
+	memcpy(&dac_voltage[1],&adc_config[6],4);
+	//int dac_val_nc = ((dac_voltage[1]*1443/10.02)+2029);
+	int dac_val_nc = voltage_to_count(0,dac_voltage[1]);
+	printf("dac_val_nc %i  CALI_DAC_INT 0 %i  CALI_DAC_INT 1 %i\r\n",dac_val_nc,CALI_DAC_INT[0],CALI_DAC_INT[1]);
+	uint16_t dac_val = CALI_DAC_INT[0]+(1023*dac_val_nc/(CALI_DAC_INT[1]-CALI_DAC_INT[0]));
+/* conflict
 	float dac_voltage[2]={0};
 
 	adc_mode = &adc_config[0];
@@ -959,14 +1096,16 @@ extern void new_adc_init(){
 	memcpy(&dac_voltage[1],&adc_config[6],4);
 	//float my_dac_val = (dac_voltage[1]+12)/8;
 	int dac_val = ((dac_voltage[1]*1443/10.02)+2029)/4;
+*/
 	printf("dac value: %i\r\n",dac_val);
 	dacx3202_set_value(&dacx3202, DACX3202_DAC_1, dac_val);
 
-	//dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, my_dac_val);
+
+//dacx3202_set_voltage(&dacx3202, DACX3202_DAC_0, my_dac_val);
 
 	//disable dac for now!
 	//set_dac(my_dac_val);
-
+	change_edge(*adc_edge);
 	//if(adc_mode == 1){
 	printf("adc mode: %i\r\n",*adc_mode);
 	printf("routing: %i\r\n",*adc_routing);
@@ -1004,10 +1143,13 @@ extern void new_adc_init(){
 	hadc1.Init.NbrOfConversion = 1;
 	hadc1.Init.DiscontinuousConvMode = DISABLE;
 	if(*adc_mode == 1){
-		hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T1_TRGO;
-		hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+		//hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T1_TRGO;
+		//hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+		hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+		hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
 	}else if(*adc_mode == 0){
 		hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+		hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
 		//hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
 	}
 	hadc1.Init.DMAContinuousRequests = ENABLE;
@@ -1018,14 +1160,14 @@ extern void new_adc_init(){
 	//hadc1.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
 
 	if(*adc_oversampling==0){
-		hadc1.Init.OversamplingMode = DISABLE;
 		hadc1.Init.Oversampling.Ratio = OVERSAMPLING[*adc_oversampling];
+		hadc1.Init.OversamplingMode = DISABLE;
 	}else{
 		hadc1.Init.OversamplingMode = ENABLE;
 		hadc1.Init.Oversampling.Ratio = OVERSAMPLING[*adc_oversampling];
 		hadc1.Init.Oversampling.RightBitShift = BITSHIFT[*adc_oversampling];
 		hadc1.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
-		hadc1.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
+		//hadc1.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
 	}
 
 
@@ -1063,80 +1205,29 @@ extern void new_adc_init(){
 		printf("SAMPLETIME_CYCLES: %i\r\n",(uint32_t)(OVERSAMPLING_DIVIDER[*adc_oversampling]*SAMPLETIME_CYCLES[*adc_sampletime]));
 		printf("PRESCALER_DIVIDER: %i\r\n",PRESCALER_DIVIDER[*adc_clock_prescaler]);
 		printf("my_prescaler: %i\r\n",my_prescaler);
-		__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
-		__HAL_TIM_DISABLE_IT(&htim2,TIM_IT_UPDATE);
+		//__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
+		//__HAL_TIM_DISABLE_IT(&htim2,TIM_IT_UPDATE);
 		__HAL_TIM_SET_PRESCALER(&htim1,my_prescaler);
 		__HAL_TIM_SET_PRESCALER(&htim2,my_prescaler);
 		//htim1.Instance->PSC = my_prescaler;
 		//htim2.Instance->PSC = my_prescaler;
 		htim2.Instance->CNT = 0;
 		htim1.Instance->CNT = 0;
-		__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
-		__HAL_TIM_ENABLE_IT(&htim2,TIM_IT_UPDATE);
+
+		//__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
+		//__HAL_TIM_ENABLE_IT(&htim2,TIM_IT_UPDATE);
 	}
+
 	HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
 	if(*adc_mode == 0){
 		printf("start live mode!\r\n");
 		HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, 180);
 	}
-
-
 }
-
-extern void setNewADC(){
-	// configure HAL_ADC_MspInit
-	//hdma_adc1.Init.Mode = DMA_CIRCULAR;//DMA_NORMAL
-	/*
-	HAL_ADC_Stop_DMA(&hadc1);
-	//work
-	hadc1.Instance = ADC1;
-	hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV32;
-	hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-	hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-	hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
-	hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-	hadc1.Init.LowPowerAutoWait = DISABLE;
-	hadc1.Init.ContinuousConvMode = ENABLE;
-	hadc1.Init.NbrOfConversion = 1;
-	hadc1.Init.DiscontinuousConvMode = DISABLE;
-	hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-	hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-	hadc1.Init.DMAContinuousRequests = ENABLE;
-	hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
-	hadc1.Init.OversamplingMode = DISABLE;
-	if (HAL_ADC_Init(&hadc1) != HAL_OK)
-	{
-	Error_Handler();
-	}
-
-  sConfig.Channel = ADC_CHANNEL_1;
-  sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_247CYCLES_5;
-  sConfig.SingleDiff = ADC_SINGLE_ENDED;
-  sConfig.OffsetNumber = ADC_OFFSET_NONE;
-  sConfig.Offset = 0;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-	Error_Handler();
-  }
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUFFER_LEN);
-  */
-}
-
 
 
 void HAL_COMP_TriggerCallback(COMP_HandleTypeDef *hcomp){
-
-	//printf("comp call  \r\n");
-	//HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
-	/*
-	if(activate_trigger){
-		activate_trigger = false;
-		HAL_GPIO_TogglePin(LED_B_GPIO_Port, LED_B_Pin);
-		HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUFFER_LEN);
-
-	}*/
-
+//	printf("comp call  \r\n");
 }
 
 
@@ -1144,18 +1235,19 @@ void HAL_COMP_TriggerCallback(COMP_HandleTypeDef *hcomp){
 
 void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef *htim)
 {
+	/*
 	if (htim == &htim2){
 		timer_val = __HAL_TIM_GET_COUNTER(&htim1);
 		HAL_ADC_Stop_DMA(&hadc1);
 		HAL_TIM_Base_Stop_IT(&htim2);
-		timestamp_adc_stop = 540*timer_val/(reference_counts);
+		htim2.Instance->CNT = 0;
+		timestamp_adc_stop = timer_val;//ADC_BUFFER_LEN*timer_val/(reference_counts);
 		//printf("trigger is no %i , ",timestamp_trigger);
-		//printf(" end is at %i \r\n",timestamp_adc_stop);
+		printf(" end is at %i , reference counts: %i\r\n",timestamp_adc_stop,reference_counts);
 		HAL_GPIO_WritePin(LED_B_GPIO_Port, LED_B_Pin, 1);
 		UTIL_SEQ_SetTask(1 << CFG_TASK_MY_TASK, CFG_SCH_PRIO_0);
-
-
-  }
+	}
+	*/
 }
 
 
@@ -1172,38 +1264,43 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 	//printf("got tim evenz \r\n");
 
 	if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1){
-			if (Is_First_Captured==0) // if the first rising edge is not captured
-			{
-				HAL_TIM_Base_Start_IT(&htim2);
-				IC_Val1 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
-				//printf("triggersignal at %i \r\n",IC_Val1);
-				Is_First_Captured = 1;  // set the first captured as true
-				timestamp_trigger = IC_Val1*540/(reference_counts);
-			}
+		if (Is_First_Captured==0 && first_adc_loop_finished){
+			Is_First_Captured = 1;  // set the first captured as true
+			IC_Val1 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
+			while(htim1.Instance->CNT < SAMPLES_POST_TRIGGER + IC_Val1 + 10);
+			HAL_GPIO_WritePin(LED_B_GPIO_Port, LED_B_Pin, 1);
+			timestamp_trigger = IC_Val1*ADC_BUFFER_LEN/(reference_counts);
+			HAL_ADC_Stop_DMA(&hadc1);
+			HAL_TIM_OC_Stop_IT(&htim1, TIM_CHANNEL_1);
+			UTIL_SEQ_SetTask(1 << CFG_TASK_MY_TASK, CFG_SCH_PRIO_0);
 		}
-
+	}
 }
 //Callback when buffer filled
 //void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc1){
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 
-	//fillingFirstHalf=true;
-	//UTIL_SEQ_SetTask(1 << CFG_TASK_MY_TASK, CFG_SCH_PRIO_0);
-	//timer_val = __HAL_TIM_GET_COUNTER(&htim1);
-	//printf("timerval when full: %u \r\n", timer_val);
-	//HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
 
-	//HAL_GPIO_TogglePin(LED_G_GPIO_Port, LED_G_Pin);
-
-	//IC_Val1 = /HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1); // read the first value
-
+	/*
+	reference_counts = __HAL_TIM_GET_COUNTER(&htim1);
+	htim1.Instance->CNT = 0;
+	if(first_adc_loop_finished == 0){
+		first_adc_loop_finished = 1;
+	}
+	*/
 	if(*adc_mode == 1){
 		reference_counts = __HAL_TIM_GET_COUNTER(&htim1);
 		htim1.Instance->CNT = 0;
+		if(first_adc_loop_finished == 0){
+			first_adc_loop_finished = 1;
+		}
 		printf("adc callback %i \r\n",reference_counts);
 	}else if(*adc_mode == 0){
 		UTIL_SEQ_SetTask(1 << CFG_TASK_FILLED, CFG_SCH_PRIO_0);
 	}
+
+	//printf("buff full! reference counts: %i \r\n",reference_counts);
+
 }
 
 
