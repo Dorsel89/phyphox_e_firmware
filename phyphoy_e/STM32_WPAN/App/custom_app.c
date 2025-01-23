@@ -435,7 +435,7 @@ void live_first_half(void){
 	if(myPointerToDMA!=NULL){
 		uint16_t data_buffer[90];
 		memcpy(&data_buffer[0],(uint8_t *)myPointerToDMA,180);
-		printf("data_buffer[0]: %i\r\n",data_buffer[0]);
+		//printf("data_buffer[0]: %i\r\n",data_buffer[0]);
 		if(CALIBRATED){
 
 

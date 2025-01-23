@@ -26,6 +26,7 @@
 #include "shared.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -218,7 +219,6 @@ int _write(int file, char *ptr, int len){
 	}
 	return len;
 }
-
 extern dacx3202_t dacx3202 = {.addr = DACX3202_7B_ADDR(0x00),
 							.i2c_read = read_i2c,
 							.i2c_write = write_i2c,
@@ -330,13 +330,13 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
   while (1)
   {
     /* USER CODE END WHILE */
     MX_APPE_Process();
 
     /* USER CODE BEGIN 3 */
-
   }
   /* USER CODE END 3 */
 }
@@ -1121,7 +1121,15 @@ extern void new_adc_init(){
 	hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
 	hadc1.Init.LowPowerAutoWait = DISABLE;
 	hadc1.Init.ContinuousConvMode = ENABLE;
-	hadc1.Init.NbrOfConversion = 1;
+
+	uint8_t n_channel = 0;
+	for(int channel = 0; channel<3; channel++){
+		if(*adc_routing & (int) pow(2,channel)){
+			n_channel++;
+		}
+	}
+	printf("n_channel: %d \n",n_channel);
+	hadc1.Init.NbrOfConversion = n_channel;
 	hadc1.Init.DiscontinuousConvMode = DISABLE;
 	if(*adc_mode == 1){
 		//hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T1_TRGO;
@@ -1160,22 +1168,33 @@ extern void new_adc_init(){
 
 	/** Configure Regular Channel
 	*/
-	if(*adc_routing == 1){
-		sConfig.Channel = ADC_CHANNEL_14;
-	}else if(*adc_routing == 2){
-		sConfig.Channel = ADC_CHANNEL_2;
+	uint16_t channel_pin[3]={ADC_CHANNEL_14, ADC_CHANNEL_2, ADC_CHANNEL_2};
+	uint8_t rank = 0;
+	for(int channel = 0; channel<3; channel++){
+		if(*adc_routing & (int) pow(2,channel)){
+			//sConfig.Channel = channel_pin[channel];
+			if(channel == 0){
+				sConfig.Channel = ADC_CHANNEL_14;
+			}else if(channel == 1){
+				sConfig.Channel = ADC_CHANNEL_2;
+			}else if(channel == 2){
+				sConfig.Channel = ADC_CHANNEL_2;
+			}
+
+			rank+=1;
+			sConfig.Rank = rank;
+
+			sConfig.SamplingTime = SAMPLETIME[*adc_sampletime];
+			sConfig.SingleDiff = ADC_SINGLE_ENDED;
+			sConfig.OffsetNumber = ADC_OFFSET_NONE;
+			sConfig.Offset = 0;
+			if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK){
+				Error_Handler();
+			}
+			printf("channel %i is configured\r\n",rank);
+		}
 	}
-	//sConfig.Channel = ADC_CHANNEL_14;
-	sConfig.Rank = ADC_REGULAR_RANK_1;
-	//sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
-	sConfig.SamplingTime = SAMPLETIME[*adc_sampletime];
-	sConfig.SingleDiff = ADC_SINGLE_ENDED;
-	sConfig.OffsetNumber = ADC_OFFSET_NONE;
-	sConfig.Offset = 0;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-	{
-	Error_Handler();
-	}
+
 	if(*adc_mode == 1){
 		//oscillator mode
 		float prescaler_f = ((12.5 + SAMPLETIME_CYCLES[*adc_sampletime])*OVERSAMPLING_DIVIDER[*adc_oversampling])*PRESCALER_DIVIDER[*adc_clock_prescaler]/(2.0);
