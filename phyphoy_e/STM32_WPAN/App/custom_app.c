@@ -462,6 +462,14 @@ void live_second_half(void){
 	}
 
 }
+void live_second_half(void){
+
+	if(myPointerToDMA!=NULL){
+		//memcpy(&UpdateCharData[0],myPointerToDMA,20);
+		Custom_STM_App_Update_Char(CUSTOM_STM_CHANNELONE, (uint8_t *)myPointerToDMA)+180;
+	}
+
+}
 /* USER CODE END PFP */
 
 /* Functions Definition ------------------------------------------------------*/
